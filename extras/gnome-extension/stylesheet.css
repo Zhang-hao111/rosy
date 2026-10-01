@@ -1,0 +1,116 @@
+/* Rosy 任务列表（时钟弹窗 · 胶囊行风格） */
+
+.todo-panel-row {
+    border-radius: 14px;
+    padding: 5px 9px;
+    spacing: 6px;
+    margin: 0 2px;
+}
+.todo-panel-row:hover,
+.todo-panel-row:focus {
+    background-color: rgba(236, 95, 155, 0.12);
+}
+
+.todo-panel-bar {
+    width: 4px;
+    border-radius: 2px;
+}
+
+/* 勾选圆钮：空心圈带清单色（与竖线同源，行才像一个整体） */
+.todo-panel-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2px solid #c9c9ce;
+    background-color: transparent;
+    color: #ffffff;
+    padding: 0;
+}
+.todo-panel-check.study,
+.todo-panel-check.life {
+    border-color: rgba(236, 95, 155, 0.55);
+}
+.todo-panel-check:hover,
+.todo-panel-check:focus {
+    border-color: #ec5f9b;
+    background-color: rgba(236, 95, 155, 0.12);
+}
+.todo-panel-check.done {
+    background-color: #ec5f9b;
+    border-color: #ec5f9b;
+}
+
+.todo-panel-body {
+    border-radius: 8px;
+    padding: 0 2px;
+}
+
+.todo-panel-title {
+    font-size: 1em;
+    color: #3d3d42;
+}
+.todo-panel-title.done {
+    color: #b3b3b8;
+}
+
+.todo-panel-note {
+    font-size: 0.85em;
+    color: #98989d;
+}
+
+.todo-panel-due {
+    font-size: 0.95em;
+    color: #8e8e93;
+}
+.todo-panel-due.hot {
+    color: #ec5f9b;
+    font-weight: bold;
+}
+
+.todo-panel-sub {
+    background-color: rgba(127, 127, 127, 0.14);
+    color: #8e8e93;
+    font-size: 0.78em;
+    border-radius: 999px;
+    padding: 1px 7px;
+}
+
+.todo-panel-chev {
+    color: #c2c2c7;
+}
+
+/* 底部控制区 macOS 化（仅时钟弹窗 .message-list 内生效） */
+.message-list .message-list-clear-button {
+    border-radius: 999px;
+    background-color: rgba(127, 127, 127, 0.12);
+    color: #7a7a80;
+    padding: 4px 14px;
+    font-size: 0.9em;
+    margin-right: 2px;
+}
+.message-list .message-list-clear-button:hover,
+.message-list .message-list-clear-button:focus {
+    background-color: rgba(236, 95, 155, 0.14);
+    color: #ec5f9b;
+}
+
+/* 请勿打扰开关：选中态换成玫瑰粉资产（未选中保持 WhiteSur 原灰） */
+.message-list .toggle-switch:checked {
+    background-image: url("toggle-on-pink.svg");
+}
+
+/* 纯白不透明底（阴影交由主题默认深色投影） */
+.rosy-date-menu {
+    background-color: #ffffff;
+}
+
+/* 竖条统一玫瑰粉（清单区分只在应用内保留） */
+.todo-panel-bar.study,
+.todo-panel-bar.life {
+    background-color: #ec5f9b;
+}
+
+/* 胶囊之间零间距 */
+.todo-panel-section .message-list-section-list {
+    spacing: 0;
+}

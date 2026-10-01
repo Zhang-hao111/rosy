@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>时钟弹窗改造预览 — 374×322</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Noto Sans CJK SC",system-ui,sans-serif;height:100vh;overflow:hidden;
+     background:linear-gradient(135deg,#3a3a5e 0%,#5e4a7e 40%,#b06a8f 75%,#e8a1b4 100%)}
+body::before{content:'';position:fixed;inset:0;
+     background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.14) 0 120px,transparent 200px),
+                radial-gradient(circle at 75% 60%,rgba(255,180,200,.25) 0 160px,transparent 260px),
+                radial-gradient(circle at 55% 20%,rgba(120,200,255,.18) 0 90px,transparent 160px)}
+
+  /* 顶栏（示意） */
+  .panel{height:34px;background:#353551;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+  .clock-pill{background:#5468a8;color:#fff;font-size:13.5px;padding:4px 22px;border-radius:8px;letter-spacing:.5px}
+
+  /* 弹窗：560 宽 × 645 高（与原日历弹窗同高），列表内部滚动、滚动条隐藏 */
+  .popup{width:374px;max-height:430px;margin:6px auto 0;background:#ffffff;
+         border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,.22);
+         padding:10px 0 6px;position:relative;display:flex;flex-direction:column}
+  .popup::before{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%) rotate(45deg);
+                 width:14px;height:14px;background:rgba(250,248,252,.85);border-radius:2px}
+
+  .list{flex:1;padding:12px 12px 4px;overflow-y:auto;scrollbar-width:none}
+  .list::-webkit-scrollbar{display:none}
+  .row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:14px;cursor:pointer;margin:0 2px}
+  .row:hover{background:rgba(236,95,155,.13)}
+  .bar{width:3px;height:26px;border-radius:2px;flex:none}
+  .bar.study{background:#ec5f9b}
+  .bar.life{background:#ec5f9b}
+  .chk{width:18px;height:18px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+  .chk.open{border:2px solid transparent;background:transparent}
+  .row .life-chk{border-color:rgba(236,95,155,.55)}
+  .row .study-chk{border-color:rgba(157,107,206,.55)}
+  .txt{flex:1;min-width:0}
+  .title{font-size:14.5px;color:#3d3d42;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .note{font-size:12.5px;color:#98989d;line-height:1.45;display:none;margin-top:4px;white-space:normal}
+  .row.expanded .note{display:block}
+  .meta{display:flex;align-items:center;gap:6px;flex:none}
+  .due{font-size:13.5px;color:#8e8e93}
+  .sub{background:rgba(127,127,127,.12);color:#8e8e93;font-size:11.5px;padding:2px 7px;border-radius:999px}
+  .chev{color:#c2c2c7;font-size:10px;transition:transform .15s}
+  .row.expanded .chev{transform:rotate(90deg)}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 10px;border-top:1px solid #ececf0;margin-top:6px}
+  .foot .hint{font-size:12px;color:#b9b9be;white-space:nowrap}
+  .foot-right{display:flex;align-items:center;gap:16px}
+  .clear{font-size:13px;white-space:nowrap;color:#7a7a80;background:rgba(127,127,127,.12);padding:5px 15px;border-radius:999px;cursor:pointer;transition:all .15s}
+  .clear:hover{background:rgba(236,95,155,.14);color:#ec5f9b}
+  .dnd{display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;color:#5c5c62}
+  .switch{width:38px;height:22px;border-radius:999px;background:#e3e3e8;position:relative;cursor:pointer;transition:background .15s}
+  .switch i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+  .switch.on{background:#ec5f9b}
+  .switch.on i{left:18px}
+
+  .caption{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#8a8a95;font-size:12.5px}
+</style>
+</head>
+<body>
+  <div class="panel"><span class="clock-pill">9月30日 04 : 29</span></div>
+
+  <div class="popup">
+    <div class="list" id="list">
+
+      <div class="row">
+        <span class="bar life"></span>
+        <span class="chk open life-chk"></span>
+        <span class="txt"><span class="title">周末大扫除</span>
+          <div class="note">重点厨房和阳台，抹布在阳台柜第二层。</div>
+        </span>
+        <span class="meta"><span class="due">周一</span><span class="chev">▶</span></span>
+      </div>
+
+      <div class="row">
+        <span class="bar life"></span>
+        <span class="chk open life-chk"></span>
+        <span class="txt"><span class="title">整理照片备份</span></span>
+        <span class="meta"><span class="due" style="opacity:.55">无日期</span></span>
+      </div>
+
+    </div>
+
+    <div class="foot">
+      <span class="hint">点圆圈勾选 · 点行看备注</span>
+      <div class="foot-right">
+        <span class="clear">清除</span>
+        <span class="dnd">请勿打扰 <span class="switch" id="dndSwitch"><i></i></span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">374×322（宽 2/3 · 高 1/2）· 只显示未完成任务 · 勾选后立即从列表消失</div>
+
+<script>
+document.getElementById('dndSwitch').addEventListener('click', function(){ this.classList.toggle('on'); });
+document.getElementById('list').addEventListener('click', e => {
+  if (e.target.closest('.chk')) return;   // 圆圈勾选不触发展开
+  const row = e.target.closest('.row');
+  if (row && row.querySelector('.note')) row.classList.toggle('expanded');
+});
+document.querySelectorAll('.chk').forEach(chk => {
+  chk.addEventListener('click', () => {
+    const row = chk.closest('.row');
+    row.style.transition = 'opacity .25s'; row.style.opacity = '0';
+    setTimeout(() => row.remove(), 260);  // 勾选后任务立即消失
+  });
+});
+</script>
+</body>
+</html>

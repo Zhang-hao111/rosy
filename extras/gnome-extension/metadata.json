@@ -1,0 +1,9 @@
+{
+  "name": "Todo Panel",
+  "description": "时钟弹窗 = Rosy 任务列表（月历已移除，勾选经 cmd.json 传给应用）",
+  "uuid": "todo-panel@local",
+  "shell-version": [
+    "42"
+  ],
+  "version": 4
+}
