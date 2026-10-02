@@ -80,7 +80,6 @@ src-tauri/src/cmd_channel.rs  弹窗 cmd.json 通道(监听注册在 setup)
 src-tauri/capabilities/     窗口权限(set-size / center 等)
 design/date-menu-mockup.html  顶栏弹窗的 HTML 设计稿
 extras/gnome-extension/     todo-panel@local 扩展源码副本(部署在 ~/.local/share/gnome-shell/extensions/)
-extras/sample-user-data.json  原 zip 自带的示例数据(v1 布局),代码未引用,仅留档
 HANDOFF.md                  完整交接文档:Ubuntu 依赖、EDS 的坑与结局、弹窗规则、数据模型、平台差异
 ```
 

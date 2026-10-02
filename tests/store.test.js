@@ -1,12 +1,25 @@
 // store.js schema 收口的回归测试:hydrate↔toData 往返、v1 平铺迁移、来源三级迁移、uid 护栏。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { hydrate, toData, T } from '../src/js/store.js';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+/* 合成 v1 平铺 fixture(替代原含个人信息的示例数据,结构等价:obsVaults/obsState/tasks 平铺顶层) */
+const V1_FIXTURE = {
+  calMode:'month', completedOpen:true, theme:'light', quickList:'study',
+  obsExpanded:{'学习计划':false}, obsHidden:[], obsOrder:['学习计划'],
+  obsState:{connected:true, count:1, notes:1, vault:'演示库', vaultPath:'/home/demo/vault'},
+  obsVaults:[{name:'演示库', path:'/home/demo/vault'}],
+  tasks:[
+    {id:17, listId:null, title:'示例外部任务', notes:'', done:false, doneAt:0, due:null,
+     subtasks:[], created:1790648677915, src:'obsidian', srcNote:'演示库/学习计划',
+     srcLine:'- [ ] 示例外部任务', srcPath:'/home/demo/vault/学习计划.md', srcVault:'/home/demo/vault'},
+    {id:1, listId:'study', title:'示例手动任务', notes:'', done:true, doneAt:1790701806189,
+     due:{time:'09:00', ts:1791820800000}, subtasks:[], created:1790700557702},
+    {id:2, listId:'life', title:'示例生活任务', notes:'', done:false, doneAt:0, due:null,
+     subtasks:[], created:1790696957702},
+  ],
+  v:1,
+};
 
 test('空/损坏输入返回 restored:false', ()=>{
   assert.deepEqual(hydrate(null), {restored:false});
@@ -14,8 +27,8 @@ test('空/损坏输入返回 restored:false', ()=>{
   assert.deepEqual(hydrate({v:2, prefs:{}}), {restored:false});   // 无 tasks 数组
 });
 
-test('v1 平铺布局(extras/sample-user-data.json)迁移为 v2', ()=>{
-  const v1 = JSON.parse(readFileSync(join(root, 'extras/sample-user-data.json'), 'utf8'));
+test('v1 平铺布局(合成 fixture)迁移为 v2', ()=>{
+  const v1 = V1_FIXTURE;
   const r = hydrate(v1);
   assert.equal(r.restored, true);
   assert.equal(r.theme, 'light');

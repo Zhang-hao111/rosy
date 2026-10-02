@@ -90,7 +90,6 @@ npm run tauri build    # 产出 .deb（bundle.targets 已是 ["deb"]）
 ## 数据
 
 - Linux 上数据固定存放于 `~/.config/com.rosy.app/data.json`；不放也能跑：首次启动用内置示例任务，删掉 data.json 即恢复出厂
-- `extras/sample-user-data.json` 是原 zip 附带的示例数据（原作者 Windows 端的数据，库路径为 `E:\...`），代码未引用，仅留档
 
 ## Obsidian 联动（按篇导入与整库共存，2026-10-02 重做）
 
@@ -194,8 +193,8 @@ tasks 元素字段(v1→v2 未变,扩展依赖这层兼容):
 }
 ```
 
-- **v1 兼容**:hydrate 同时认得 v1 平铺(所有偏好字段与 tasks 并列,如
-  `extras/sample-user-data.json`)与 v2 嵌套;读入后下次落盘自动升为 v2。
+- **v1 兼容**:hydrate 同时认得 v1 平铺(所有偏好字段与 tasks 并列,合成 fixture 见
+  tests/store.test.js)与 v2 嵌套;读入后下次落盘自动升为 v2。
 - 保存链路:数据变更点各自 `scheduleSave()`(400ms 防抖)→ `invoke('save_data')`
   (store.toData() → fsync 临时文件原子替换);关窗时 close-requested 先 `flushSave()` 再销毁。
   首次启动无数据文件时用内置示例任务。数据目录可用环境变量 `ROSY_DATA_DIR` 显式指定。
