@@ -1,0 +1,35 @@
+  /* ============ 动效 ============ */
+  @keyframes viewIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .anim{animation:viewIn .32s cubic-bezier(.2,.8,.2,1)}
+  .anim2{animation:viewIn .24s cubic-bezier(.2,.8,.2,1)}
+  @keyframes rowIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  .row.enter{animation:rowIn .3s cubic-bezier(.2,.8,.2,1)}
+  @keyframes checkPop{0%{transform:scale(.6)}55%{transform:scale(1.2)}100%{transform:scale(1)}}
+  .row.justdone .check{animation:checkPop .35s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes strikeIn{from{transform:scaleX(0)}}
+  .row.justdone .txt::after{animation:strikeIn .32s .1s both}
+  @keyframes chipPop{0%{transform:scale(.9)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+  .cchip.chipflash{animation:chipPop .35s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes cellIn{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:none}}
+  .cal-grid.stagger .cell{animation:cellIn .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*7ms)}
+  @keyframes swapIn{from{opacity:.4;transform:translateX(10px)}to{opacity:1;transform:none}}
+  .detail-inner.swap{animation:swapIn .24s cubic-bezier(.2,.8,.2,1)}
+  .done-wrap{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s cubic-bezier(.2,.8,.2,1)}
+  .done-wrap:not(.open){grid-template-rows:0fr}
+  .done-clip{overflow:hidden;min-height:0}
+  /* 交互过渡 */
+  .picker{transition:opacity .18s cubic-bezier(.2,.8,.2,1),transform .18s cubic-bezier(.2,.8,.2,1),visibility 0s}
+  .nav-item,.row,.d-chip,.date-pill,.cal-today-btn{transition:background .15s,color .15s}
+  .cchip{transition:transform .15s,filter .15s}
+  .cchip:hover{transform:translateY(-1px)}
+  /* 下拉清单菜单 */
+  .menu{width:172px;padding:5px}
+  .menu-item{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--text);user-select:none}
+  .menu-item:hover{background:var(--accent);color:#fff}
+  .menu-item .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .menu-item .ck{margin-left:auto;width:12px;height:12px;opacity:0;flex:none}
+  .menu-item.sel .ck{opacity:1}
+  .check:active{transform:scale(.85)}
+  .sub-check:active{transform:scale(.85)}
+  .cal-btn:active,.pk-nav:active,.icon-btn:active,.d-close:active,.pk-clear:active{transform:scale(.9)}
+  .list-pill:active,.date-pill:active,.d-chip:active,.cal-today-btn:active{transform:scale(.96)}
