@@ -35,7 +35,7 @@ macOS 风格待办应用 · Tauri 2 + 原生 HTML/CSS/JS（无框架）· Ubuntu
 
 | 文件 | 用途 |
 | --- | --- |
-| `data.json` | 全部数据（任务、清单、主题、开关）；400ms 防抖 + 临时文件原子替换 |
+| `data.json` | **v2 布局** `{ v:2, tasks:[...], prefs:{...} }`:任务保持顶层(顶栏扩展直读 `tasks`),偏好收在 `prefs`;400ms 防抖 + 临时文件原子替换。schema 收口在 `js/store.js` 的 `toData()/hydrate()`,兼容读取 v1 平铺旧档并自动落为 v2 |
 | `cmd.json` / ack | 弹窗 → 应用的期望状态通道（应用处理后删除该文件确认） |
 
 ## 开发
@@ -58,14 +58,34 @@ npm run tauri build    # 产出 .deb（src-tauri/target/release/bundle/deb/）
 ## 结构
 
 ```
-src/index.html              整个应用（UI + 全部逻辑，单文件）
-src-tauri/src/lib.rs        持久化 / vault 监听 / 弹窗 cmd 通道（cmd.json 监听注册在 run() setup）
-src-tauri/capabilities/     窗口权限（set-size / center 等）
+src/index.html              标记(骨架)+ 9 个 <link> + ES module 入口 main.js
+src/css/                    9 个样式文件,按原分区注释切分(base/window/sidebar/batch/
+                            content/calendar/detail/picker/animations)
+src/js/                     20 个原生 ES modules(无框架无打包器):
+  store.js      共享可变状态唯一来源 + 数据 schema 收口(toData/hydrate,v2 布局)
+  tauri.js      window.__TAURI__ 单点(浏览器预览自动降级)
+  utils.js      DOM/日期/转义工具
+  data.js       防抖保存 + 任务查询(inView/countFor 等走 views 注册表)
+  views.js      视图注册表:成员判定/导航标记——加"清单类新视图"零改动
+  rows/toast    任务行 HTML / toast+撤销
+  sidebar       侧栏(导航由 views.navHTML() 生成)
+  views-list / views-calendar / render(详情+总调度) / quickadd / picker
+  task-events / detail-events   列表交互 / 详情编辑(副作用模块)
+  obsidian / cmd-channel        多库联动 / 弹窗 cmd.json 通道
+  split-drag / batch / window-chrome   分栏拖拽 / 每周批量 / 窗口控制
+src-tauri/src/lib.rs        入口:run() + setup + invoke_handler
+src-tauri/src/storage.rs    data.json 原子读写
+src-tauri/src/obsidian.rs   库读取/选目录/监听/回写 + VaultWatcher
+src-tauri/src/cmd_channel.rs  弹窗 cmd.json 通道(监听注册在 setup)
+src-tauri/capabilities/     窗口权限(set-size / center 等)
 design/date-menu-mockup.html  顶栏弹窗的 HTML 设计稿
-extras/gnome-extension/     todo-panel@local 扩展源码副本（部署在 ~/.local/share/gnome-shell/extensions/）
-extras/sample-user-data.json  原 zip 自带的示例数据，代码未引用，仅留档
-HANDOFF.md                  完整交接文档：Ubuntu 依赖、EDS 的坑与结局、弹窗规则、数据模型、平台差异
+extras/gnome-extension/     todo-panel@local 扩展源码副本(部署在 ~/.local/share/gnome-shell/extensions/)
+extras/sample-user-data.json  原 zip 自带的示例数据(v1 布局),代码未引用,仅留档
+HANDOFF.md                  完整交接文档:Ubuntu 依赖、EDS 的坑与结局、弹窗规则、数据模型、平台差异
 ```
+
+改前端后必须 `cargo build`(资源编译期嵌入);前端接了三道静态检查
+(`node --check` + check.mjs:导入完整/依赖图可达/视图判断不泄漏),在 `refactor/modular` 分支。
 
 ## 文档
 
