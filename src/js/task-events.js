@@ -1,13 +1,13 @@
+// 任务列表交互:#taskScroll 委托(勾选/删除/清空/撤销/拖拽改期/日历格与导航)。
+// 只注册监听,不导出编排;delTask 供详情面板的删除按钮复用。
 import { $, $$, TODAY, DAY, fmtTs } from './utils.js';
 import { TASKS, state, obsExpanded, setTasks } from './store.js';
 import { invoke } from './tauri.js';
 import { scheduleSave, saveObsPrefs } from './data.js';
 import { syncCalYM } from './views-calendar.js';
-import { renderSidebar } from './sidebar.js';
 import { render, renderDetail, animateRow, retrigger } from './render.js';
 import { showToast, hideToast } from './toast.js';
-import { openPicker, closePicker } from './picker.js';
-import { openListMenu, closeListMenu } from './quickadd.js';
+import { openPicker } from './picker.js';
 import { demoImport, connectVault, openObsHiddenMenu, moveNote, hideNote } from './obsidian.js';
 $('#taskScroll').addEventListener('click', e=>{
   if(e.target.closest('#obsConnectBtn')){
@@ -156,31 +156,4 @@ $('#taskScroll').addEventListener('drop', e=>{
   render();
   showToast(`已移至 ${fmtTs(ts)}`, ()=>{ t.due = prevDue; render(); });
 });
-/* 详情 */
-$('#detailInner').addEventListener('click', e=>{
-  const t = TASKS.find(x=>x.id===state.selected); if(!t) return;
-  if(e.target.closest('#dClose')){ state.selected=null; closePicker(); render(); return; }
-  if(e.target.closest('#dDate')){
-    e.stopPropagation(); openPicker('task', e.target.closest('#dDate'), t.id); return;
-  }
-  if(e.target.closest('#dList')){
-    e.stopPropagation(); openListMenu('detail', e.target.closest('#dList')); return;
-  }
-  if(e.target.closest('#dDelete')){ delTask(t.id); closePicker(); return; }
-  const sc = e.target.closest('.sub-check');
-  if(sc){ t.subtasks[+sc.dataset.i].done = !t.subtasks[+sc.dataset.i].done; render(); }
-});
-$('#detailInner').addEventListener('input', e=>{
-  const t = TASKS.find(x=>x.id===state.selected); if(!t) return;
-  if(e.target.id==='dTitle'){ t.title = e.target.value; renderSidebar(); const r=$(`.row[data-id="${t.id}"] .txt`); if(r) r.textContent=t.title; }
-  if(e.target.id==='dNotes'){ t.notes = e.target.innerText.trim(); }
-  scheduleSave();
-});
-$('#detailInner').addEventListener('keydown', e=>{
-  const t = TASKS.find(x=>x.id===state.selected); if(!t) return;
-  if(e.target.id==='dSubAdd' && e.key==='Enter' && e.target.value.trim()){
-    t.subtasks.push({title:e.target.value.trim(), done:false});
-    render(); setTimeout(()=>{ const i=$('#dSubAdd'); if(i) i.focus(); },0);
-  }
-  if(e.target.id==='dTitle' && e.key==='Enter') e.target.blur();
-});
+export { delTask };

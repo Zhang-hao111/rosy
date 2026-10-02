@@ -6,7 +6,8 @@ import { reimportAllVaults, connectVault, openObsHiddenMenu, closeObsHiddenMenu,
 import { listenCmds, processCmd } from './cmd-channel.js';
 import { closeListMenu, listMenuOpen } from './quickadd.js';
 import { closePicker } from './picker.js';
-import './task-actions.js';   // 副作用模块:任务交互监听(勾选/删除/撤销/拖拽改期/详情面板)
+import './task-events.js';    // 副作用模块:任务列表交互(勾选/删除/撤销/拖拽改期/日历格)
+import './detail-events.js';  // 副作用模块:详情面板编辑(标题/备注/子任务/清单/日期/删除)
 import { batchCloseFn } from './batch.js';
 import './split-drag.js';      // 副作用模块:两条分栏拖拽
 import './window-chrome.js';   // 副作用模块:红绿灯/尺寸记忆(Tauri 下生效)
