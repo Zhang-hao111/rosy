@@ -21,7 +21,7 @@ function calNavHTML(){
 }
 function syncCalYM(){ const d=new Date(state.calSel); state.calY=d.getFullYear(); state.calM=d.getMonth(); }
 
-function renderCalendar(monthChanged, dayChanged){
+function renderCalendar({monthChanged=false, dayChanged=false}={}){
   $('#viewTitle').textContent = '日历';
   $('#ringBox').style.display = 'none';
   let html = '';

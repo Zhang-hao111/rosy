@@ -6,6 +6,7 @@ import { renderList } from './views-list.js';
 import { renderCalendar } from './views-calendar.js';
 import { renderObsidianView } from './obsidian.js';
 import { renderQuickBar } from './quickadd.js';
+import { viewDef } from './views.js';
 /* ================= 详情面板 ================= */
 function renderDetail(){
   const pane = $('#detailPane'), inner = $('#detailInner'), div = $('#detailDivider');
@@ -59,16 +60,18 @@ function animateRow(id, cls){
   const c = document.querySelector(`.cchip[data-id="${id}"]`);
   if(c) c.classList.add('chipflash');
 }
+/* 渲染器注册:kind → 渲染函数。全新渲染类型在此加一行;smart/list 类新视图零改动。 */
+const RENDERERS = { smart:renderList, list:renderList, calendar:renderCalendar, obsidian:renderObsidianView };
 function render(){
   renderSidebar(); renderMiniCal(); renderProg(); renderUpcoming();
-  $('#obsReimportBtn').style.display = (state.view==='obsidian' && obsState.connected) ? 'inline-flex' : 'none';
+  const def = viewDef(state.view);
+  $('#obsReimportBtn').style.display = (def && def.reimportBtn && obsState.connected) ? 'inline-flex' : 'none';
   const viewChanged = _prevView !== state.view;
   const calKey = state.calY + '-' + state.calM;
-  const monthChanged = state.view==='calendar' && calKey !== _prevCalKey;
-  const dayChanged   = state.view==='calendar' && state.calSel !== _prevSel;
-  if(state.view==='calendar') renderCalendar(monthChanged, dayChanged);
-  else if(state.view==='obsidian') renderObsidianView();
-  else renderList();
+  const monthChanged = def && def.kind==='calendar' && calKey !== _prevCalKey;
+  const dayChanged   = def && def.kind==='calendar' && state.calSel !== _prevSel;
+  const renderer = RENDERERS[def ? def.kind : 'list'] || renderList;
+  renderer({viewChanged, monthChanged, dayChanged});
   renderDetail(); renderQuickBar();
   if(viewChanged){
     retrigger($('#taskScroll'),'anim');
@@ -77,7 +80,7 @@ function render(){
   }
   if(state.selected!==_prevDetailSel && state.selected!=null && $('#detailPane').classList.contains('open'))
     retrigger($('#detailInner'),'swap');
-  if(state.view==='calendar'){ _prevCalKey=calKey; _prevSel=state.calSel; }
+  if(def && def.kind==='calendar'){ _prevCalKey=calKey; _prevSel=state.calSel; }
   else { _prevCalKey=null; _prevSel=null; }   // 离开日历后再次进入时重新播放入场动画
   _prevView=state.view; _prevDetailSel=state.selected;
   scheduleSave();

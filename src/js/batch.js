@@ -1,13 +1,15 @@
 import { $, $$, TODAY, DAY, fmtTs } from './utils.js';
-import { TASKS, state, LISTS, T, setTasks } from './store.js';
+import { TASKS, state, T, setTasks } from './store.js';
 import { render } from './render.js';
 import { showToast } from './toast.js';
+import { viewDef } from './views.js';
 /* ================= 批量生成每周固定任务 ================= */
 const wdSet = new Set([1,3,5]);   // 默认周一/三/五
 let repList = null;   // null = 跟随当前上下文
 function repDefList(){
-  return (state.view==='today'||state.view==='calendar') ? state.quickList
-       : (LISTS.some(l=>l.id===state.view) ? state.view : 'study');
+  const def = viewDef(state.view);
+  return (def && def.pill) ? state.quickList
+       : (def && def.kind==='list' ? state.view : 'study');
 }
 function repEffList(){ return repList || repDefList(); }
 function repDates(){

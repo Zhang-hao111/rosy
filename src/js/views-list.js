@@ -1,14 +1,14 @@
 import { $, WD, kindOf } from './utils.js';
-import { state, LISTS } from './store.js';
+import { state } from './store.js';
 import { viewTasks } from './data.js';
 import { rowHTML, activeDoneSplits } from './rows.js';
+import { viewDef } from './views.js';
 /* ================= 列表视图（今天 / 学习 / 生活） ================= */
 function renderList(){
   const all = viewTasks();
   const {active, done} = activeDoneSplits(all);
-  const names = {today:'今天', calendar:'日历'};
-  const list  = LISTS.find(l=>l.id===state.view);
-  const title = names[state.view] || (list? list.name : '');
+  const def = viewDef(state.view);
+  const title = def ? def.title : '';
   const d = new Date();
   let sub;
   if(state.view==='today') sub = `${d.getMonth()+1}月${d.getDate()}日 星期${WD[d.getDay()]} · 已完成 ${done.length} / ${active.length+done.length}`;

@@ -2,18 +2,20 @@ import { $, fmtTs, TODAY, WD } from './utils.js';
 import { TASKS, state, LISTS, T } from './store.js';
 import { render, animateRow } from './render.js';
 import { openPicker, closePicker } from './picker.js';
+import { viewDef } from './views.js';
 /* ================= 快速添加栏 ================= */
 function renderQuickBar(){
-  $('#quickBar').style.display = state.view==='obsidian' ? 'none' : '';
+  const def = viewDef(state.view);
+  $('#quickBar').style.display = def && def.quickAdd===false ? 'none' : '';
   const pill = $('#listPill');
-  const inSmart = (state.view==='today'||state.view==='calendar');
+  const inSmart = !!(def && def.pill);
   pill.style.display = inSmart ? '' : 'none';
   if(inSmart){
     const l = LISTS.find(x=>x.id===state.quickList);
     $('#listPillDot').style.background = l.color;
     $('#listPillName').textContent = l.name;
   }
-  const inCal = state.view==='calendar';
+  const inCal = !!(def && def.calTarget);
   const effTs = inCal ? state.calSel : state.quickDate;
   const lbl = $('#quickDateLabel');
   const btn = $('#quickDateBtn');
@@ -25,20 +27,20 @@ function renderQuickBar(){
     lbl.textContent = '日期';
   }
   const q = $('#quickInput');
-  if(state.view==='today')       q.placeholder = '添加到「今天」，回车确认';
-  else if(state.view==='calendar') q.placeholder = `添加到 ${fmtTs(state.calSel)}，回车确认`;
-  else q.placeholder = `添加到「${(LISTS.find(l=>l.id===state.view)||{}).name}」，回车确认`;
+  if(def && def.calTarget) q.placeholder = `添加到 ${fmtTs(state.calSel)}，回车确认`;
+  else q.placeholder = `添加到「${def ? def.title : ''}」，回车确认`;
 }
 /* 快速添加 */
 $('#quickInput').addEventListener('keydown', e=>{
   if(e.key!=='Enter') return;
   const s = e.target.value.trim(); if(!s) return;
+  const def = viewDef(state.view);
   let listId, d;
-  if(state.view==='today'||state.view==='calendar') listId = state.quickList;
+  if(def && def.pill) listId = state.quickList;
   else listId = state.view;
-  if(state.view==='calendar')      d = {ts: state.calSel, time: state.quickTime||null};
-  else if(state.view==='today')    d = {ts: state.quickDate || TODAY, time: state.quickTime||null};
-  else                             d = state.quickDate ? {ts: state.quickDate, time: state.quickTime||null} : null;
+  if(def && def.calTarget)            d = {ts: state.calSel, time: state.quickTime||null};
+  else if(def && def.kind==='smart')  d = {ts: state.quickDate || TODAY, time: state.quickTime||null};
+  else                                d = state.quickDate ? {ts: state.quickDate, time: state.quickTime||null} : null;
   const nt = T({title:s, listId, due:d});
   TASKS.unshift(nt);
   e.target.value=''; state.quickDate=null; state.quickTime='';

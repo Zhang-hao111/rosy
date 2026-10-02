@@ -4,13 +4,21 @@ import { allTasks, countFor, saveObsPrefs } from './data.js';
 import { render } from './render.js';
 import { closeListMenu } from './quickadd.js';
 import { closePicker } from './picker.js';
+import { VIEWS, navHTML } from './views.js';
+
+/* 导航项由 views.js 注册表生成(替代原 index.html 静态标记) */
+$('#smartNav').innerHTML = navHTML();
+
 /* ================= 侧栏 ================= */
 function renderSidebar(){
-  const tc = $('#smartNav [data-count="today"]');
-  tc.textContent = countFor('today') || '';
-  tc.closest('.nav-item').classList.toggle('accent-count', !!countFor('today'));
-  const ocEl = $('#obsCnt');
-  if(ocEl) ocEl.textContent = countFor('obsidian') || '';
+  for(const d of VIEWS){
+    if(!d.badge) continue;
+    const el = $(`#smartNav .cnt[data-count="${d.id}"]`);
+    if(!el) continue;
+    const n = countFor(d.id);
+    el.textContent = n || '';
+    if(d.accent) el.closest('.nav-item').classList.toggle('accent-count', !!n);
+  }
   $$('#smartNav .nav-item').forEach(el=>el.classList.toggle('active', el.dataset.view===state.view));
 }
 
