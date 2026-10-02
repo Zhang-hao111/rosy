@@ -1,6 +1,6 @@
 import { $, esc, mkday } from './utils.js';
-import { TASKS, state, obsState, obsVaults, obsOrder, obsExpanded, obsHidden, OBS_COLOR, T,
-         setTasks, setObsState, setObsVaults, setObsOrder, setObsHidden, setObsMenuOpen, setVaultMenuOpen } from './store.js';
+import { TASKS, state, obsState, obsSources, obsOrder, obsExpanded, obsHidden, T,
+         setTasks, setObsState, setObsSources, setObsOrder, setObsHidden, setObsMenuOpen, setVaultMenuOpen, setAddMenuOpen } from './store.js';
 import { invoke, tauriListen } from './tauri.js';
 import { allTasks, matchSearch, saveObsPrefs, loadObsPrefs, scheduleSave } from './data.js';
 import { rowHTML } from './rows.js';
@@ -77,54 +77,71 @@ function demoImport(){
 - [ ] 深度清洁厨房`}
   ], '示例笔记库');
 }
-/* ---- 真实库连接：Rust 侧读取 / 监听 / 回写（支持多库） ---- */
+/* ---- 真实连接:Rust 侧读取 / 监听 / 回写(笔记与笔记库两种来源共存) ---- */
 function vaultNameOf(p){ return p.split(/[\\/]/).filter(Boolean).pop() || '我的笔记库'; }
-async function reimportAllVaults({silent=false}={}){
+function noteNameOf(p){ return (p.split(/[\\/]/).filter(Boolean).pop() || '笔记').replace(/\.md$/i, ''); }
+async function reimportAllSources({silent=false}={}){
   const imported = []; let notes = 0; const failed = [];
-  for(const v of obsVaults){
+  for(const v of obsSources){
     try{
-      const docs = await invoke('read_vault', {path: v.path});
+      const docs = await invoke('read_source', {path: v.path});
+      const isNote = v.kind==='note';
       docs.forEach(d=>{
-        const ts = parseObsidianMarkdown(d.name, d.text, d.path, v.name, v.path);
+        // 单篇笔记 srcNote=纯文件名;库来源照旧「库名/相对路径」
+        const ts = parseObsidianMarkdown(d.name, d.text, d.path, isNote? null : v.name, v.path);
         if(ts.length){ notes++; imported.push(...ts); }
       });
-      try{ await invoke('watch_vault', {path: v.path}); }catch(e){ console.error('监听失败', v.path, e); }
-    }catch(e){ console.error('读取库失败', v.path, e); failed.push(v); }
+      try{ await invoke('watch_source', {path: v.path}); }catch(e){ console.error('监听失败', v.path, e); }
+    }catch(e){ console.error('读取来源失败', v.path, e); failed.push(v); }
   }
-  setTasks(imported.concat(TASKS.filter(t=>t.src!=='obsidian')));   // 整库替换（含示例任务）
+  // 按来源替换:仍连接的来源整替(去重,重复导入不再翻倍);被移除/失效来源的任务随之清除
+  const paths = new Set(obsSources.map(v=>v.path));
+  setTasks(imported.concat(TASKS.filter(t=>t.src!=='obsidian' || !paths.has(t.srcVault))));
   [...new Set(imported.map(t=>t.srcNote))].forEach(n=>{ if(!obsOrder.includes(n)) obsOrder.push(n); });
-  setObsState({connected: true, vault: obsVaults.length? obsVaults[obsVaults.length-1].name : obsState.vault,
-              vaultPath: obsVaults.length? obsVaults[0].path : undefined, notes, count: imported.length});
+  setObsState({connected: true, vault: obsSources.length? obsSources[obsSources.length-1].name : obsState.vault,
+              vaultPath: obsSources.length? obsSources[0].path : undefined, notes, count: imported.length});
   render(); scheduleSave();
   return {imported, notes, failed};
+}
+async function connectNotes(paths, {silent=false}={}){
+  if(!invoke){ $('#obsNoteFile').click(); return; }    // 浏览器预览退回网页选择
+  for(const p of paths){
+    if(!obsSources.some(v=>v.path===p)) obsSources.push({name: noteNameOf(p), path: p, kind:'note'});
+  }
+  const res = await reimportAllSources({silent});
+  if(!silent){
+    const failedPick = res.failed.filter(f=>paths.includes(f.path)).length;
+    if(failedPick === paths.length) showToast('连接失败:无法读取所选笔记');
+    else showToast(`已连接 ${paths.length - failedPick} 篇笔记 · 共 ${obsSources.length} 个来源`);
+  }
 }
 async function connectVault(path, {silent=false}={}){
   if(!invoke){ $('#obsFile').click(); return; }        // 浏览器预览退回网页选择
   const name = vaultNameOf(path);
-  if(!obsVaults.some(v=>v.path===path)) obsVaults.push({name, path});
-  const res = await reimportAllVaults({silent});
+  if(!obsSources.some(v=>v.path===path)) obsSources.push({name, path, kind:'vault'});
+  const res = await reimportAllSources({silent});
   if(!silent){
     if(res.failed.some(f=>f.path===path)) showToast('连接失败：无法读取该文件夹');
-    else showToast(`已连接「${name}」· ${res.imported.length} 个任务 · 共 ${obsVaults.length} 个库`);
+    else showToast(`已连接「${name}」· ${res.imported.length} 个任务 · 共 ${obsSources.length} 个来源`);
   }
 }
-/* vault 变更 → 防抖后所有库重读（笔记文件是唯一事实源） */
+/* 来源变更 → 防抖后所有来源重读（笔记文件是唯一事实源） */
 let vaultTimer = null, vaultListening = false;
 async function listenVaultChanges(){
   if(!invoke || vaultListening) return;
   vaultListening = true;
   try{
-    
+
     await tauriListen('vault-changed', ()=>{
       clearTimeout(vaultTimer);
       vaultTimer = setTimeout(async ()=>{
-        if(!obsVaults.length) return;
+        if(!obsSources.length) return;
         try{
           const before = JSON.stringify(TASKS.filter(t=>t.src==='obsidian'));
-          await reimportAllVaults({silent:true});
+          await reimportAllSources({silent:true});
           const after = JSON.stringify(TASKS.filter(t=>t.src==='obsidian'));
           if(before!==after) showToast('已同步笔记变更');
-        }catch(e){ console.error('重读笔记库失败', e); }
+        }catch(e){ console.error('重读笔记失败', e); }
       }, 500);
     });
   }catch(e){ console.error('注册监听失败', e); }
@@ -139,18 +156,20 @@ function renderObsidianView(){
     $('#taskScroll').innerHTML = `
       <div class="obs-cta">
         <div class="obs-cta-ico">📒</div>
-        <div class="obs-cta-title">连接你的 Obsidian 笔记库</div>
-        <div class="obs-cta-sub">选择库文件夹，自动识别笔记里的 <b>- [ ]</b> 任务与 <b>📅 截止日期</b>，<br>支持添加多个笔记库，内容变更自动同步</div>
-        <button class="obs-cta-btn" id="obsConnectBtn">选择文件夹…</button>
-        <div class="obs-cta-sub" style="margin-top:12px">还没准备好？<span class="lnk" id="obsDemoBtn">载入示例笔记</span></div>
+        <div class="obs-cta-title">连接你的 Obsidian 笔记</div>
+        <div class="obs-cta-sub">选择 <b>.md 笔记</b>或整个库文件夹，自动识别 <b>- [ ]</b> 任务与 <b>📅 截止日期</b>，<br>可混合添加多个来源，内容变更自动同步</div>
+        <button class="obs-cta-btn" id="obsConnectNoteBtn">添加笔记…</button>
+        <div class="obs-cta-sub" style="margin-top:10px">或 <span class="lnk" id="obsConnectVaultBtn">添加整个笔记库</span> · 还没准备好？<span class="lnk" id="obsDemoBtn">载入示例笔记</span></div>
       </div>`;
     return;
   }
   const byNote = {};
   items.forEach(t=>{ (byNote[t.srcNote] = byNote[t.srcNote]||[]).push(t); });
   const activeN = items.filter(t=>!t.done).length;
+  const nNote = obsSources.filter(v=>v.kind!=='vault').length, nVault = obsSources.length - nNote;
+  const srcLabel = [nNote? `${nNote} 篇笔记`:'', nVault? `${nVault} 个库`:''].filter(Boolean).join(' · ') || '0 个来源';
   $('#viewSub').innerHTML = `${activeN} 个待办 · 来自 ${Object.keys(byNote).length} 个笔记` +
-    ` · <span class="lnk" id="vaultMgr">${obsVaults.length} 个笔记库</span>` +
+    ` · <span class="lnk" id="vaultMgr">${srcLabel}</span>` +
     (obsHidden.length? ` · <span class="lnk" id="obsHiddenMgr">已屏蔽 ${obsHidden.length} 篇</span>` : '');
   // 显示顺序：已保存的顺序优先，新笔记追加在后
   const names = Object.keys(byNote);
@@ -221,8 +240,8 @@ $('#obsHiddenMenu').addEventListener('click', e=>{
 });
 function openVaultMenu(anchor){
   const m = $('#vaultMenu');
-  m.innerHTML = `<div class="mi-title">已连接的笔记库 · 点击移除</div>` +
-    obsVaults.map((v,i)=>`<div class="menu-item" data-i="${i}"><span class="dot" style="background:${OBS_COLOR}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.name)}</span><span style="opacity:.65;font-size:11px">移除</span></div>`).join('');
+  m.innerHTML = `<div class="mi-title">已连接的笔记 / 笔记库 · 点击移除</div>` +
+    obsSources.map((v,i)=>`<div class="menu-item" data-i="${i}"><span style="flex:none">${v.kind==='note'?'📝':'📁'}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.name)}</span><span style="opacity:.65;font-size:11px">移除</span></div>`).join('');
   m.classList.remove('hidden');
   setVaultMenuOpen(true);
   const r = anchor.getBoundingClientRect();
@@ -233,10 +252,10 @@ function openVaultMenu(anchor){
 function closeVaultMenu(){ $('#vaultMenu').classList.add('hidden'); setVaultMenuOpen(false); }
 $('#vaultMenu').addEventListener('click', e=>{
   const it = e.target.closest('.menu-item'); if(!it) return;
-  const v = obsVaults[+it.dataset.i]; if(!v) return;
-  obsVaults.splice(+it.dataset.i,1);
+  const v = obsSources[+it.dataset.i]; if(!v) return;
+  obsSources.splice(+it.dataset.i,1);
   closeVaultMenu();
-  if(obsVaults.length){ reimportAllVaults(); }
+  if(obsSources.length){ reimportAllSources(); }   // 按来源替换:该来源的任务随之清除,其余不受影响
   else {
     setTasks(TASKS.filter(t=>t.src!=='obsidian'));
     setObsState({connected:false, vault:'', vaultPath:undefined, notes:0, count:0});
@@ -244,9 +263,41 @@ $('#vaultMenu').addEventListener('click', e=>{
   }
   showToast(`已移除「${v.name}」`);
 });
+/* 「添加」下拉:笔记(可多选)/ 整个笔记库 */
+function openAddSourceMenu(anchor){
+  const m = $('#addSourceMenu');
+  m.innerHTML = `<div class="menu-item" data-addkind="note">📝 添加笔记…<span style="margin-left:auto;opacity:.6;font-size:11px">可多选</span></div>` +
+    `<div class="menu-item" data-addkind="vault">📁 添加笔记库…</div>`;
+  m.classList.remove('hidden');
+  setAddMenuOpen(true);
+  const r = anchor.getBoundingClientRect();
+  m.style.left = Math.min(r.left, window.innerWidth-220)+'px';
+  m.style.top = Math.max(12, r.bottom+8)+'px';
+  m.style.transformOrigin = 'top left';
+}
+function closeAddSourceMenu(){ $('#addSourceMenu').classList.add('hidden'); setAddMenuOpen(false); }
+$('#addSourceMenu').addEventListener('click', e=>{
+  const it = e.target.closest('.menu-item'); if(!it) return;
+  const kind = it.dataset.addkind;
+  closeAddSourceMenu();
+  (async ()=>{
+    if(kind==='note'){
+      if(invoke){ const ps = await invoke('pick_note'); if(ps && ps.length) connectNotes(ps); else showToast('已取消选择'); }
+      else { $('#obsNoteFile').click(); }   // 浏览器预览
+    } else {
+      if(invoke){ const p = await invoke('pick_vault'); if(p) connectVault(p); else showToast('已取消选择'); }
+      else { $('#obsFile').click(); }
+    }
+  })();
+});
 $('#obsFile').addEventListener('change', e=>{
   if(e.target.files && e.target.files.length) importFiles(e.target.files);
   e.target.value='';
 });
+$('#obsNoteFile').addEventListener('change', e=>{
+  if(e.target.files && e.target.files.length) importFiles(e.target.files);
+  e.target.value='';
+});
 loadObsPrefs();
-export { demoImport, reimportAllVaults, connectVault, renderObsidianView, moveNote, hideNote, openObsHiddenMenu, closeObsHiddenMenu, openVaultMenu, closeVaultMenu };
+export { demoImport, reimportAllSources, connectNotes, connectVault, renderObsidianView, moveNote, hideNote,
+         openObsHiddenMenu, closeObsHiddenMenu, openVaultMenu, closeVaultMenu, openAddSourceMenu, closeAddSourceMenu };

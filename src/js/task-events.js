@@ -8,9 +8,18 @@ import { syncCalYM } from './views-calendar.js';
 import { render, renderDetail, animateRow, retrigger } from './render.js';
 import { showToast, hideToast } from './toast.js';
 import { openPicker } from './picker.js';
-import { demoImport, connectVault, openObsHiddenMenu, moveNote, hideNote } from './obsidian.js';
+import { demoImport, connectNotes, connectVault, openObsHiddenMenu, moveNote, hideNote } from './obsidian.js';
 $('#taskScroll').addEventListener('click', e=>{
-  if(e.target.closest('#obsConnectBtn')){
+  if(e.target.closest('#obsConnectNoteBtn')){
+    (async ()=>{
+      if(invoke){
+        const ps = await invoke('pick_note');
+        if(ps && ps.length) connectNotes(ps); else showToast('已取消选择');
+      } else { $('#obsNoteFile').click(); }   // 浏览器预览
+    })();
+    return;
+  }
+  if(e.target.closest('#obsConnectVaultBtn')){
     (async ()=>{
       if(invoke){
         const p = await invoke('pick_vault');

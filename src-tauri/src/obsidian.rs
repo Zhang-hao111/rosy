@@ -50,15 +50,22 @@ fn collect_md(dir: &Path, root: &Path, out: &mut Vec<MdDoc>) {
 }
 
 #[tauri::command]
-pub fn read_vault(path: String) -> Result<Vec<MdDoc>, String> {
-    let root = PathBuf::from(&path);
-    if !root.is_dir() {
-        return Err("文件夹不存在或已移动".into());
+pub fn read_source(path: String) -> Result<Vec<MdDoc>, String> {
+    let p = PathBuf::from(&path);
+    if p.is_file() {
+        // 单篇笔记:整文件即一个 MdDoc
+        let name = p.file_stem().and_then(|s| s.to_str()).unwrap_or("笔记").to_string();
+        let text = fs::read_to_string(&p).map_err(|e| format!("无法读取笔记: {e}"))?;
+        eprintln!("[read_source] {path}: 单篇");
+        return Ok(vec![MdDoc { name, path: p.to_string_lossy().into_owned(), text }]);
+    }
+    if !p.is_dir() {
+        return Err("文件夹或文件不存在或已移动".into());
     }
     let mut out = Vec::new();
-    collect_md(&root, &root, &mut out);
+    collect_md(&p, &p, &mut out);
     out.sort_by(|a, b| a.name.cmp(&b.name));
-    eprintln!("[read_vault] {path}: {} 个 md", out.len());
+    eprintln!("[read_source] {path}: {} 个 md", out.len());
     Ok(out)
 }
 
@@ -85,6 +92,31 @@ pub async fn pick_vault(app: AppHandle) -> Option<String> {
 }
 
 #[tauri::command]
+pub async fn pick_note(app: AppHandle) -> Option<Vec<String>> {
+    // 多选 .md 文件,同一主线程模式
+    let (tx, rx) = std::sync::mpsc::channel();
+    let r = app.run_on_main_thread(move || {
+        eprintln!("[pick_note] 主线程打开对话框…");
+        let picked = rfd::FileDialog::new()
+            .set_title("选择 Obsidian 笔记(可多选)")
+            .add_filter("Markdown", &["md"])
+            .pick_files();
+        eprintln!("[pick_note] 结果: {} 个文件", picked.as_ref().map_or(0, |v| v.len()));
+        let _ = tx.send(picked.map(|v| {
+            v.into_iter().map(|p| p.to_string_lossy().into_owned()).collect()
+        }));
+    });
+    if let Err(e) = r {
+        eprintln!("[pick_note] run_on_main_thread 失败: {e}");
+        return None;
+    }
+    tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten())
+        .await
+        .ok()
+        .flatten()
+}
+
+#[tauri::command]
 pub fn write_back(path: String, from: String, to: String) -> Result<bool, String> {
     let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
     if !text.contains(&from) {
@@ -102,7 +134,7 @@ pub fn write_back(path: String, from: String, to: String) -> Result<bool, String
 pub struct VaultWatcher(pub Mutex<HashMap<String, RecommendedWatcher>>);
 
 #[tauri::command]
-pub fn watch_vault(app: AppHandle, state: State<'_, VaultWatcher>, path: String) -> Result<(), String> {
+pub fn watch_source(app: AppHandle, state: State<'_, VaultWatcher>, path: String) -> Result<(), String> {
     let handle = app.clone();
     let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
         if let Ok(ev) = res {
@@ -125,11 +157,13 @@ pub fn watch_vault(app: AppHandle, state: State<'_, VaultWatcher>, path: String)
         }
     })
     .map_err(|e| e.to_string())?;
+    // 目录递归监听;单篇笔记只盯文件本身
+    let mode = if Path::new(&path).is_dir() { RecursiveMode::Recursive } else { RecursiveMode::NonRecursive };
     watcher
-        .watch(Path::new(&path), RecursiveMode::Recursive)
+        .watch(Path::new(&path), mode)
         .map_err(|e| e.to_string())?;
-    // 逐库保存 watcher(同路径重复监听时替换旧的,其他库不受影响)
+    // 逐来源保存 watcher(同路径重复监听时替换旧的,其他来源不受影响)
     state.0.lock().map_err(|_| "监听状态异常")?.insert(path.clone(), watcher);
-    eprintln!("[watch_vault] 已监听 {path}");
+    eprintln!("[watch_source] 已监听 {path}");
     Ok(())
 }

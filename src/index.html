@@ -58,7 +58,7 @@
     <header class="content-header" data-tauri-drag-region>
       <h1 id="viewTitle" data-tauri-drag-region>今天</h1>
       <div class="content-sub" id="viewSub" data-tauri-drag-region></div>
-      <button class="hdr-btn" id="obsReimportBtn" title="添加或更换笔记库（内容变更自动同步）"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>添加笔记库</button>
+      <button class="hdr-btn" id="obsReimportBtn" title="添加笔记或笔记库（内容变更自动同步）"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>添加</button>
       <div class="ring" id="ringBox">
         <svg width="30" height="30" viewBox="0 0 30 30">
           <circle class="track" cx="15" cy="15" r="11.5" fill="none" stroke-width="3.4"/>
@@ -86,6 +86,7 @@
   </main>
 
   <input type="file" id="obsFile" webkitdirectory multiple style="display:none">
+  <input type="file" id="obsNoteFile" accept=".md" multiple style="display:none">
 
   <div class="divider" id="detailDivider" title="拖动调整详情宽度" style="display:none"></div>
 
@@ -115,6 +116,7 @@
 
   <!-- 清单下拉菜单 -->
   <div class="picker menu hidden" id="listMenu"></div>
+  <div class="picker menu hidden" id="addSourceMenu" style="width:210px"></div>
   <div class="picker menu hidden" id="obsHiddenMenu" style="width:250px"></div>
   <div class="picker menu hidden" id="vaultMenu" style="width:280px"></div>
 

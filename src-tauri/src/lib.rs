@@ -22,10 +22,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             storage::load_data,
             storage::save_data,
-            obsidian::read_vault,
+            obsidian::read_source,
             obsidian::pick_vault,
+            obsidian::pick_note,
             obsidian::write_back,
-            obsidian::watch_vault,
+            obsidian::watch_source,
             cmd_channel::read_cmd,
             cmd_channel::ack_cmd
         ])

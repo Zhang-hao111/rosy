@@ -43,13 +43,14 @@ const state = {
 let obsState = { connected:false, vault:'', notes:0 };
 /* Obsidian 笔记级偏好：展开/顺序/屏蔽（随任务数据一起持久化） */
 let obsOrder = [], obsExpanded = {}, obsHidden = [];
-let obsVaults = [];   // 已连接的笔记库 [{name, path}]
+let obsSources = [];   // 已连接来源 [{name, path, kind}]  kind: 'note'(单个.md) | 'vault'(文件夹)
+let addMenuOpen = false;   // 「添加」下拉菜单(笔记/库)
 const OBS_COLOR = '#7f6df2';
 function listColorOf(t){
   if(t.listId){ const l = LISTS.find(x=>x.id===t.listId); if(l) return l.color; }
   return t.src==='obsidian' ? OBS_COLOR : 'var(--text-3)';
 }
-export { TASKS, state, obsState, obsVaults, obsOrder, obsExpanded, obsHidden, obsMenuOpen, vaultMenuOpen, LISTS, OBS_COLOR, listColorOf, T, toData, hydrate };
+export { TASKS, state, obsState, obsSources, obsOrder, obsExpanded, obsHidden, obsMenuOpen, vaultMenuOpen, addMenuOpen, LISTS, OBS_COLOR, listColorOf, T, toData, hydrate };
 let obsMenuOpen = false;
 let vaultMenuOpen = false;
 
@@ -57,12 +58,13 @@ let vaultMenuOpen = false;
 export function setTasks(v){ TASKS = v; }
 export function setUid(v){ uid = v; }
 export function setObsState(v){ obsState = v; }
-export function setObsVaults(v){ obsVaults = v; }
+export function setObsSources(v){ obsSources = v; }
 export function setObsOrder(v){ obsOrder = v; }
 export function setObsExpanded(v){ obsExpanded = v; }
 export function setObsHidden(v){ obsHidden = v; }
 export function setObsMenuOpen(v){ obsMenuOpen = v; }
 export function setVaultMenuOpen(v){ vaultMenuOpen = v; }
+export function setAddMenuOpen(v){ addMenuOpen = v; }
 
 /* ================= 数据 schema 唯一收口 =================
    v2 布局:{ v:2, tasks:[...], prefs:{...} }。
@@ -71,7 +73,7 @@ export function setVaultMenuOpen(v){ vaultMenuOpen = v; }
    都在本文件:今后加/改字段只动这里,不再有 snapshot/init 两头手写清单。 */
 function toData(){
   return { v:2, tasks:TASKS,
-    prefs:{ obsVaults, obsState, obsOrder, obsExpanded, obsHidden,
+    prefs:{ obsSources, obsState, obsOrder, obsExpanded, obsHidden,
             theme: bodyDark()?'dark':'light', completedOpen: state.completedOpen,
             quickList: state.quickList, calMode: state.calMode } };
 }
@@ -86,8 +88,10 @@ function hydrate(saved){
   if(Array.isArray(p.obsOrder))          setObsOrder(p.obsOrder);
   if(p.obsExpanded)                      setObsExpanded(p.obsExpanded);
   if(Array.isArray(p.obsHidden))         setObsHidden(p.obsHidden);
-  if(Array.isArray(p.obsVaults))         setObsVaults(p.obsVaults.filter(v=>v&&v.path));
-  else if(p.obsState && p.obsState.vaultPath) setObsVaults([{name: p.obsState.vault||'笔记库', path: p.obsState.vaultPath}]);   // 旧单库数据迁移
+  // 来源列表:新键 obsSources(kind: note|vault);旧 obsVaults(无 kind)映射为 vault 条目
+  if(Array.isArray(p.obsSources))        setObsSources(p.obsSources.filter(v=>v&&v.path));
+  else if(Array.isArray(p.obsVaults))    setObsSources(p.obsVaults.filter(v=>v&&v.path).map(v=>({name:v.name, path:v.path, kind:'vault'})));
+  else if(p.obsState && p.obsState.vaultPath) setObsSources([{name: p.obsState.vault||'笔记库', path: p.obsState.vaultPath, kind:'vault'}]);   // 旧单库数据迁移
   if(typeof p.completedOpen==='boolean') state.completedOpen = p.completedOpen;
   if(p.quickList && LISTS.some(l=>l.id===p.quickList)) state.quickList = p.quickList;
   if(p.calMode==='week'||p.calMode==='month')         state.calMode   = p.calMode;

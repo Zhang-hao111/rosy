@@ -1,8 +1,8 @@
 import { $, bodyDark } from './utils.js';
 import { invoke } from './tauri.js';
-import { state, obsVaults, obsMenuOpen, vaultMenuOpen, hydrate, setObsVaults } from './store.js';
+import { state, obsSources, obsMenuOpen, vaultMenuOpen, addMenuOpen, hydrate, setObsSources } from './store.js';
 import { scheduleSave } from './data.js';
-import { reimportAllVaults, connectVault, openObsHiddenMenu, closeObsHiddenMenu, openVaultMenu, closeVaultMenu } from './obsidian.js';
+import { reimportAllSources, connectVault, openObsHiddenMenu, closeObsHiddenMenu, openVaultMenu, closeVaultMenu, openAddSourceMenu, closeAddSourceMenu } from './obsidian.js';
 import { listenCmds, processCmd } from './cmd-channel.js';
 import { closeListMenu, listMenuOpen } from './quickadd.js';
 import { closePicker } from './picker.js';
@@ -17,12 +17,10 @@ $('#smartNav').addEventListener('click', e=>{
   const item = e.target.closest('.nav-item'); if(!item) return;
   state.view = item.dataset.view; state.selected = null; closePicker(); render();
 });
-/* 顶栏:重新导入 + 「已屏蔽 N 篇」管理入口 */
-$('#obsReimportBtn').addEventListener('click', ()=>{
-  (async ()=>{
-    if(!invoke){ $('#obsFile').click(); return; }                 // 浏览器预览
-    const p = await invoke('pick_vault'); if(p) connectVault(p); else showToast('已取消选择');
-  })();
+/* 顶栏:「添加」下拉(笔记/库)+ 「已屏蔽 N 篇」管理入口 */
+$('#obsReimportBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  openAddSourceMenu(e.currentTarget);
 });
 $('#viewSub').addEventListener('click', e=>{
   const m = e.target.closest('#obsHiddenMgr');
@@ -34,6 +32,8 @@ document.addEventListener('click', e=>{
   const pk = $('#picker'), m = $('#listMenu');
   if(!pk.classList.contains('hidden') && !pk.contains(e.target)) closePicker();
   if(listMenuOpen() && !m.contains(e.target)) closeListMenu();
+  const am = $('#addSourceMenu');
+  if(addMenuOpen && !am.contains(e.target) && !e.target.closest('#obsReimportBtn')) closeAddSourceMenu();
   const hm = $('#obsHiddenMenu');
   if(obsMenuOpen && !hm.contains(e.target) && !e.target.closest('#obsHiddenMgr')) closeObsHiddenMenu();
   const vm = $('#vaultMenu');
@@ -42,6 +42,7 @@ document.addEventListener('click', e=>{
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(!$('#batchModal').classList.contains('hidden')){ batchCloseFn(); return; }
+    if(addMenuOpen){ closeAddSourceMenu(); return; }
     if(obsMenuOpen){ closeObsHiddenMenu(); return; }
     if(vaultMenuOpen){ closeVaultMenu(); return; }
     if(listMenuOpen()){ closeListMenu(); return; }
@@ -87,13 +88,13 @@ $('#themeBtn').addEventListener('click', ()=>{
     }catch(err){ console.error('恢复数据失败', err); }
   }
   render();
-  if(restored && obsVaults.length && invoke){
-    // 自动重连：重读所有库并重新监听；已失效的库自动移出列表
-    reimportAllVaults({silent:true}).then(res=>{
+  if(restored && obsSources.length && invoke){
+    // 自动重连:重读所有来源并重新监听;已失效的来源自动移出列表
+    reimportAllSources({silent:true}).then(res=>{
       if(res.failed.length){
-        setObsVaults(obsVaults.filter(v=>!res.failed.includes(v)));
+        setObsSources(obsSources.filter(v=>!res.failed.includes(v)));
         showToast(`「${res.failed.map(f=>f.name).join('」「')}」已不可访问，已移除`);
-        reimportAllVaults({silent:true});
+        reimportAllSources({silent:true});
       }
     });
   }
