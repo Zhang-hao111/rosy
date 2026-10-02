@@ -1,4 +1,4 @@
-import { TODAY, mkday, _now } from './utils.js';
+import { TODAY, mkday, _now, bodyDark } from './utils.js';
 let uid = 1;
 const LISTS = [
   {id:'study', name:'学习', color:'#9d6bce'},
@@ -49,7 +49,7 @@ function listColorOf(t){
   if(t.listId){ const l = LISTS.find(x=>x.id===t.listId); if(l) return l.color; }
   return t.src==='obsidian' ? OBS_COLOR : 'var(--text-3)';
 }
-export { TASKS, state, obsState, obsVaults, obsOrder, obsExpanded, obsHidden, obsMenuOpen, vaultMenuOpen, LISTS, OBS_COLOR, listColorOf, T };
+export { TASKS, state, obsState, obsVaults, obsOrder, obsExpanded, obsHidden, obsMenuOpen, vaultMenuOpen, LISTS, OBS_COLOR, listColorOf, T, toData, hydrate };
 let obsMenuOpen = false;
 let vaultMenuOpen = false;
 
@@ -63,3 +63,33 @@ export function setObsExpanded(v){ obsExpanded = v; }
 export function setObsHidden(v){ obsHidden = v; }
 export function setObsMenuOpen(v){ obsMenuOpen = v; }
 export function setVaultMenuOpen(v){ vaultMenuOpen = v; }
+
+/* ================= 数据 schema 唯一收口 =================
+   v2 布局:{ v:2, tasks:[...], prefs:{...} }。
+   tasks 必须保持顶层——GNOME 顶栏扩展直接读 data.json 的 tasks 数组;
+   其余均为可重建的偏好,收进 prefs。序列化(toData)与反序列化(hydrate)
+   都在本文件:今后加/改字段只动这里,不再有 snapshot/init 两头手写清单。 */
+function toData(){
+  return { v:2, tasks:TASKS,
+    prefs:{ obsVaults, obsState, obsOrder, obsExpanded, obsHidden,
+            theme: bodyDark()?'dark':'light', completedOpen: state.completedOpen,
+            quickList: state.quickList, calMode: state.calMode } };
+}
+/* 识别 v1(全部平铺)与 v2(prefs 嵌套)两种落盘布局,统一灌入当前状态。
+   返回 {restored, theme}:theme 交给调用方做 DOM 切换(store 不碰 DOM)。 */
+function hydrate(saved){
+  if(!saved || !Array.isArray(saved.tasks)) return {restored:false};
+  setTasks(saved.tasks);
+  setUid(TASKS.reduce((m,t)=>Math.max(m,+t.id||0),0)+1);
+  const p = (saved.v>=2 && saved.prefs) ? saved.prefs : saved;
+  if(p.obsState)                         setObsState(p.obsState);
+  if(Array.isArray(p.obsOrder))          setObsOrder(p.obsOrder);
+  if(p.obsExpanded)                      setObsExpanded(p.obsExpanded);
+  if(Array.isArray(p.obsHidden))         setObsHidden(p.obsHidden);
+  if(Array.isArray(p.obsVaults))         setObsVaults(p.obsVaults.filter(v=>v&&v.path));
+  else if(p.obsState && p.obsState.vaultPath) setObsVaults([{name: p.obsState.vault||'笔记库', path: p.obsState.vaultPath}]);   // 旧单库数据迁移
+  if(typeof p.completedOpen==='boolean') state.completedOpen = p.completedOpen;
+  if(p.quickList && LISTS.some(l=>l.id===p.quickList)) state.quickList = p.quickList;
+  if(p.calMode==='week'||p.calMode==='month')         state.calMode   = p.calMode;
+  return {restored:true, theme: p.theme};
+}

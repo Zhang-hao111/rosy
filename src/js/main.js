@@ -1,7 +1,6 @@
 import { $, bodyDark } from './utils.js';
 import { invoke } from './tauri.js';
-import { state, TASKS, obsVaults, LISTS, obsMenuOpen, vaultMenuOpen,
-         setTasks, setUid, setObsState, setObsVaults, setObsOrder, setObsExpanded, setObsHidden } from './store.js';
+import { state, obsVaults, obsMenuOpen, vaultMenuOpen, hydrate, setObsVaults } from './store.js';
 import { scheduleSave } from './data.js';
 import { reimportAllVaults, connectVault, openObsHiddenMenu, closeObsHiddenMenu, openVaultMenu, closeVaultMenu } from './obsidian.js';
 import { listenCmds, processCmd } from './cmd-channel.js';
@@ -71,30 +70,18 @@ $('#themeBtn').addEventListener('click', ()=>{
     : '<path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z"/>';
   scheduleSave();
 });
-/* ================= 启动：恢复本地数据 ================= */
+/* ================= 启动:恢复本地数据 =================
+   schema 细节全部在 store.hydrate;这里只管编排与主题 DOM。 */
 (async function init(){
   let restored = false;
   if(invoke){
     try{
-      const saved = await invoke('load_data');
-      if(saved && Array.isArray(saved.tasks)){
-        setTasks(saved.tasks);
-        setUid(TASKS.reduce((m,t)=>Math.max(m,+t.id||0),0)+1);
-        if(saved.obsState)                         setObsState(saved.obsState);
-        if(Array.isArray(saved.obsOrder))          setObsOrder(saved.obsOrder);
-        if(saved.obsExpanded)                      setObsExpanded(saved.obsExpanded);
-        if(Array.isArray(saved.obsHidden))         setObsHidden(saved.obsHidden);
-        if(Array.isArray(saved.obsVaults))         setObsVaults(saved.obsVaults.filter(v=>v&&v.path));
-        else if(saved.obsState && saved.obsState.vaultPath) setObsVaults([{name: saved.obsState.vault||'笔记库', path: saved.obsState.vaultPath}]);   // 旧单库数据迁移
-        if(typeof saved.completedOpen==='boolean') state.completedOpen = saved.completedOpen;
-        if(saved.quickList && LISTS.some(l=>l.id===saved.quickList)) state.quickList = saved.quickList;
-        if(saved.calMode==='week'||saved.calMode==='month')        state.calMode   = saved.calMode;
-        if(saved.theme==='dark'){
-          document.body.classList.add('dark');
-          $('#themeLabel').textContent = '切换浅色模式';
-          $('#themeIcon').innerHTML = '<circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.4 3.4l1.2 1.2M11.4 11.4l1.2 1.2M12.6 3.4l-1.2 1.2M4.6 11.4l-1.2 1.2"/>';
-        }
-        restored = true;
+      const r = hydrate(await invoke('load_data'));
+      restored = r.restored;
+      if(r.theme==='dark'){
+        document.body.classList.add('dark');
+        $('#themeLabel').textContent = '切换浅色模式';
+        $('#themeIcon').innerHTML = '<circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.4 3.4l1.2 1.2M11.4 11.4l1.2 1.2M12.6 3.4l-1.2 1.2M4.6 11.4l-1.2 1.2"/>';
       }
     }catch(err){ console.error('恢复数据失败', err); }
   }

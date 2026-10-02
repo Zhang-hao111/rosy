@@ -1,18 +1,13 @@
-import { TASKS, state, obsState, obsVaults, obsOrder, obsExpanded, obsHidden } from './store.js';
-import { bodyDark, kindOf } from './utils.js';
+import { TASKS, state, obsHidden, toData } from './store.js';
+import { kindOf } from './utils.js';
 import { invoke } from './tauri.js';
 import { viewDef } from './views.js';
 let saveTimer = null;
-function snapshot(){
-  return { v:1, tasks:TASKS, obsState, obsOrder, obsExpanded, obsHidden,
-           theme: bodyDark()?'dark':'light', completedOpen: state.completedOpen,
-           quickList: state.quickList, calMode: state.calMode, obsVaults };
-}
 function scheduleSave(){
   if(!invoke) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
-    invoke('save_data', {data: snapshot()}).catch(console.error);
+    invoke('save_data', {data: toData()}).catch(console.error);
   }, 400);
 }
 function loadObsPrefs(){}
