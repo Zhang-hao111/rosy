@@ -77,14 +77,22 @@ npm run tauri build    # 产出 .deb（bundle.targets 已是 ["deb"]）
 - Linux 上数据固定存放于 `~/.config/com.rosy.app/data.json`；不放也能跑：首次启动用内置示例任务，删掉 data.json 即恢复出厂
 - `extras/sample-user-data.json` 是原 zip 附带的示例数据（原作者 Windows 端的数据，库路径为 `E:\...`），代码未引用，仅留档
 
-## Obsidian 联动（已完成）
+## Obsidian 联动（按篇导入与整库共存，2026-10-02 重做）
 
-- 「添加笔记库」= 系统原生选目录（rfd），可反复添加多个库；副标题「N 个笔记库」点开菜单可移除
-- 递归读取 `.md`（跳过 `.obsidian`/`.git` 等隐藏目录，上限 200 个文件）
-- 只把 **`- [ ]` 复选框行**解析为任务；`📅 2026-10-07` / `@due(...)` / `[due:: ]` 可带截止日期（时间可选）
-- 变更自动同步（notify 监听 + 防抖 500ms），无需手动刷新；启动自动重连，失效库自动移除并提示
-- 勾选任务自动**回写笔记**：按原始行精确替换 `- [ ]`↔`- [x]`，找不到原行则不动文件并提示，绝不改其他内容
-- 跨库同名笔记自动带库名前缀分组，不会混
+- 「添加」下拉（右上角）/ 未连接 CTA 双入口：**添加笔记…**（rfd `pick_files` 多选 .md，kind:'note'）
+  或 **添加笔记库…**（rfd 选文件夹，kind:'vault'）；两种来源可混合添加、分别移除
+- 数据:`prefs.obsSources = [{name, path, kind}]`;hydrate 自动迁移旧 `prefs.obsVaults`/v1 平铺
+  `obsVaults`(缺 kind 补 'vault'),Ubuntu 旧库连接零操作保留
+- Rust 命令:`read_source`(目录→collect_md / 单文件→单条 MdDoc)、`watch_source`
+  (目录递归/单文件自身)、`pick_note`、`pick_vault`、`write_back`
+- **同步是按来源整体替换**:`reimportAllSources` 用「全部来源的新导入 + 未连接来源的旧任务」
+  重建 TASKS——来源内不会重复累积(2026-09-30 的重复导入翻倍问题就此关闭),移除来源自动清它的任务,
+  手动任务永不受影响。单篇笔记的 srcNote=纯文件名;库来源照旧「库名/相对路径」
+- 变更监听:notify 逐来源注册(vault-changed 事件),单篇笔记只盯文件本身;防抖 500ms 全量重读
+- 回写:勾选按 srcPath+srcLine 整行替换 `- [ ]`↔`- [x]`,与来源粒度无关,机制未变
+- 启动自动重连:失效来源自动移出列表并提示(逻辑未变,作用于 obsSources)
+- 浏览器预览:「添加笔记」退回 `#obsNoteFile`(多选)、「添加笔记库」退回 `#obsFile`(文件夹),
+  均为一次性导入(无真实路径可持久化)
 
 ## 系统日历同步（已移除，2026-10-02）
 
@@ -180,4 +188,4 @@ cd ~/rosy-verify && npm install && npm run tauri build      # 或直接 cargo bu
 
 - Windows 开发机历史验证：双库导入/监听/回写、数据迁移；功能清单静态检查全过（日历推拉 E2E 随功能移除一并失效）
 - Ubuntu 实机已验证：任务增删改/排序、弹窗勾选通道、窗口尺寸记忆、11 条真实数据迁移
-- 路线图：本地应用 ✅、Obsidian 联动 ✅（当前断开，重连前先给 reimportAllVaults 加去重）、日历联动已移除。可选打磨：系统托盘、开机自启
+- 路线图：本地应用 ✅、Obsidian 联动 ✅（2026-10-02 重做:按篇导入与整库共存,按来源替换;曾断开的去重隐患已修复）、日历联动已移除。可选打磨：系统托盘、开机自启
