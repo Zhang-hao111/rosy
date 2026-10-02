@@ -1,6 +1,11 @@
 import { $, TODAY, DAY } from './utils.js';
 import { TASKS, state } from './store.js';
 import { render } from './render.js';
+import { scheduleSave } from './data.js';
+import { editTaskLine } from './obsidian-parse.js';
+import { syncTaskToNote } from './obsidian-sync.js';
+import { positionMenu } from './ui-menu.js';
+import { registerOverlay, overlayOpened } from './ui-overlays.js';
 /* ================= 日期选择浮层 ================= */
 function buildPicker(){
   const y = state.pickY, m = state.pickM;
@@ -40,22 +45,20 @@ function openPicker(ctx, anchor, taskId){
   buildPicker();
   const pk = $('#picker');
   pk.classList.remove('hidden');
-  const r = anchor.getBoundingClientRect();
-  const pw = 252, ph = pk.offsetHeight;
-  let x = Math.min(r.left, window.innerWidth - pw - 16);
-  let y = r.bottom + 8;
-  const openedUp = y + ph > window.innerHeight - 12;
-  if(openedUp) y = r.top - ph - 8;
-  pk.style.left = x+'px'; pk.style.top = Math.max(12,y)+'px';
-  pk.style.transformOrigin = `${r.left < window.innerWidth/2 ? 'left' : 'right'} ${openedUp ? 'bottom' : 'top'}`;
+  positionMenu(pk, anchor, {width:252});
+  overlayOpened('picker');
 }
 function closePicker(){ $('#picker').classList.add('hidden'); state.pickCtx=null; }
 function applyPick(ts){
   const time = $('#pkTime').value || null;
   const t = pickerTargetTask();
-  if(t){ t.due = {ts, time}; }
+  if(t){
+    t.due = {ts, time};
+    if(t.src==='obsidian' && t.srcLine) syncTaskToNote(t, editTaskLine(t.srcLine, {due: t.due}));   // 日期同步笔记
+    scheduleSave();
+  }
   else {
-    state.quickDate = ts; state.quickTime = time||'';
+    state.quickDate = ts; state.quickTime = time||'';   // 快速栏草稿不落盘
     if(state.view==='calendar'){ state.calSel = ts; state.calY = new Date(ts).getFullYear(); state.calM = new Date(ts).getMonth(); }
   }
   closePicker(); render();
@@ -72,7 +75,11 @@ $('#pkTime').addEventListener('change', ()=>{
 });
 $('#pkClear').addEventListener('click', ()=>{
   const t = pickerTargetTask();
-  if(t) t.due = null;
+  if(t){
+    t.due = null;
+    if(t.src==='obsidian' && t.srcLine) syncTaskToNote(t, editTaskLine(t.srcLine, {due: null}));   // 清日期=移除标记
+    scheduleSave();
+  }
   else { state.quickDate=null; state.quickTime=''; }
   closePicker(); render();
 });
@@ -85,4 +92,5 @@ $('#pkQuick').addEventListener('click', e=>{
   else ts = TODAY + (+n)*DAY;
   applyPick(ts);
 });
+registerOverlay('picker', {isOpen:()=>!$('#picker').classList.contains('hidden'), close:closePicker});
 export { openPicker, closePicker };

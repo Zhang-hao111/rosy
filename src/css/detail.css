@@ -37,3 +37,8 @@
   .icon-btn svg{width:15px;height:15px}
   .d-created{font-size:11px;color:var(--text-3)}
 
+  /* Obsidian 任务的只读备注与提示(R1:笔记单行任务表达不了备注/子任务) */
+  .d-readonly{color:var(--text-3);cursor:default}
+  .d-readonly:empty::before{content:"（无）";color:var(--text-3)}
+  .d-readonly:focus{box-shadow:none}
+  .d-hint{font-size:11.5px;color:var(--text-3);padding:2px 2px 0}

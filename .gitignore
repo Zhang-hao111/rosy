@@ -22,3 +22,6 @@ Thumbs.db
 *.bak
 *.bak-*
 *~
+
+# 本地工作文档（架构审查修复计划，不入库）
+/REVIEW-FIXES.local.md

@@ -44,13 +44,15 @@ let obsState = { connected:false, vault:'', notes:0 };
 /* Obsidian 笔记级偏好：展开/顺序/屏蔽（随任务数据一起持久化） */
 let obsOrder = [], obsExpanded = {}, obsHidden = [];
 let obsSources = [];   // 已连接来源 [{name, path, kind}]  kind: 'note'(单个.md) | 'vault'(文件夹)
+let obsIds = {};       // 外部任务身份台账 { "<笔记绝对路径>": { "<行原文>": id } }
+                       // 只在「我们自己回写行」与「reimport 解析」两个点更新(obsidian-parse/sync)
 let addMenuOpen = false;   // 「添加」下拉菜单(笔记/库)
 const OBS_COLOR = '#7f6df2';
 function listColorOf(t){
   if(t.listId){ const l = LISTS.find(x=>x.id===t.listId); if(l) return l.color; }
   return t.src==='obsidian' ? OBS_COLOR : 'var(--text-3)';
 }
-export { TASKS, state, obsState, obsSources, obsOrder, obsExpanded, obsHidden, obsMenuOpen, vaultMenuOpen, addMenuOpen, LISTS, OBS_COLOR, listColorOf, T, toData, hydrate };
+export { TASKS, state, obsState, obsSources, obsOrder, obsExpanded, obsHidden, obsIds, obsMenuOpen, vaultMenuOpen, addMenuOpen, LISTS, OBS_COLOR, listColorOf, T, toData, hydrate };
 let obsMenuOpen = false;
 let vaultMenuOpen = false;
 
@@ -59,6 +61,7 @@ export function setTasks(v){ TASKS = v; }
 export function setUid(v){ uid = v; }
 export function setObsState(v){ obsState = v; }
 export function setObsSources(v){ obsSources = v; }
+export function setObsIds(v){ obsIds = (v && typeof v==='object' && !Array.isArray(v)) ? v : {}; }
 export function setObsOrder(v){ obsOrder = v; }
 export function setObsExpanded(v){ obsExpanded = v; }
 export function setObsHidden(v){ obsHidden = v; }
@@ -72,7 +75,7 @@ export function setAddMenuOpen(v){ addMenuOpen = v; }
    其余均为可重建的偏好,收进 prefs。序列化(toData)与反序列化(hydrate)
    都在本文件:今后加/改字段只动这里,不再有 snapshot/init 两头手写清单。 */
 function toData(){
-  return { v:2, tasks:TASKS,
+  return { v:2, tasks:TASKS, obsIds,
     prefs:{ obsSources, obsState, obsOrder, obsExpanded, obsHidden,
             theme: bodyDark()?'dark':'light', completedOpen: state.completedOpen,
             quickList: state.quickList, calMode: state.calMode } };
@@ -82,7 +85,8 @@ function toData(){
 function hydrate(saved){
   if(!saved || !Array.isArray(saved.tasks)) return {restored:false};
   setTasks(saved.tasks);
-  setUid(TASKS.reduce((m,t)=>Math.max(m,+t.id||0),0)+1);
+  // uid 只从手动任务(<1e9)恢复:外部任务 id 为内容派生(≥1e9,obsidian-parse.js),不占手动 uid 空间
+  setUid(TASKS.reduce((m,t)=>{ const id=+t.id||0; return id<1e9 ? Math.max(m,id) : m; },0)+1);
   const p = (saved.v>=2 && saved.prefs) ? saved.prefs : saved;
   if(p.obsState)                         setObsState(p.obsState);
   if(Array.isArray(p.obsOrder))          setObsOrder(p.obsOrder);
@@ -92,6 +96,8 @@ function hydrate(saved){
   if(Array.isArray(p.obsSources))        setObsSources(p.obsSources.filter(v=>v&&v.path));
   else if(Array.isArray(p.obsVaults))    setObsSources(p.obsVaults.filter(v=>v&&v.path).map(v=>({name:v.name, path:v.path, kind:'vault'})));
   else if(p.obsState && p.obsState.vaultPath) setObsSources([{name: p.obsState.vault||'笔记库', path: p.obsState.vaultPath, kind:'vault'}]);   // 旧单库数据迁移
+  // 身份台账:缺失/脏数据一律重置为空(首次 reimport 自动重建,老数据零迁移)
+  setObsIds(saved.obsIds && typeof saved.obsIds==='object' ? saved.obsIds : {});
   if(typeof p.completedOpen==='boolean') state.completedOpen = p.completedOpen;
   if(p.quickList && LISTS.some(l=>l.id===p.quickList)) state.quickList = p.quickList;
   if(p.calMode==='week'||p.calMode==='month')         state.calMode   = p.calMode;

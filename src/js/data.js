@@ -10,7 +10,12 @@ function scheduleSave(){
     invoke('save_data', {data: toData()}).catch(console.error);
   }, 400);
 }
-function loadObsPrefs(){}
+/* 立即落盘:清掉挂起的防抖,同步保存一次。关窗 flush(window-chrome.js)专用 */
+function flushSave(){
+  clearTimeout(saveTimer);
+  if(!invoke) return Promise.resolve();
+  return invoke('save_data', {data: toData()}).catch(console.error);
+}
 function saveObsPrefs(){ scheduleSave(); }
 function noteHidden(name){ return obsHidden.includes(name); }
 function allTasks(){ return TASKS.filter(t=>!(t.src==='obsidian' && noteHidden(t.srcNote))); }
@@ -26,4 +31,4 @@ function countFor(v){
   if(!def) return 0;
   return allTasks().filter(t=>!t.done && def.match(t)).length;
 }
-export { scheduleSave, loadObsPrefs, saveObsPrefs, allTasks, matchSearch, viewTasks, countFor };
+export { scheduleSave, flushSave, saveObsPrefs, allTasks, matchSearch, viewTasks, countFor };

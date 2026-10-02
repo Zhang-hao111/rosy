@@ -13,11 +13,12 @@ const ICON = {
 /* match: 视图成员判定(含已完成任务);导航计数 = !done && match(t)。
    badge: 侧栏导航计数徽标;accent: 计数>0 时导航项高亮(仅今天)。
    pill: 快速添加栏显示清单胶囊(智能视图里选归属清单);calTarget: 新任务日期默认取日历选中日;
-   quickAdd:false: 该视图无快速添加栏;reimportBtn: 内容区右上角「添加笔记库」按钮。 */
+   quickAdd:false: 该视图无快速添加栏;reimportBtn: 内容区右上角「添加笔记库」按钮;
+   nav:false: 不进侧栏导航(今天=启动默认页,日历由迷你月历进入;学习/生活从清单进度区进入)。 */
 const VIEWS = [
-  { id:'today',    title:'今天', kind:'smart',    icon:ICON.today,    color:'#ec5f9b',
+  { id:'today',    title:'今天', kind:'smart',    icon:ICON.today,    color:'#ec5f9b', nav:false,
     match:t=>t.due && kindOf(t)!=='future', badge:true, accent:true, pill:true },
-  { id:'calendar', title:'日历', kind:'calendar', icon:ICON.calendar, color:'#c07ae0',
+  { id:'calendar', title:'日历', kind:'calendar', icon:ICON.calendar, color:'#c07ae0', nav:false,
     match:()=>true, badge:false, pill:true, calTarget:true },
   { id:'obsidian', title:'Obsidian', kind:'obsidian', icon:ICON.obsidian, color:'#7f6df2',
     match:t=>t.src==='obsidian', badge:true, pill:false, quickAdd:false, reimportBtn:true },
@@ -26,9 +27,9 @@ const VIEWS = [
 
 function viewDef(id){ return VIEWS.find(v=>v.id===id); }
 
-/* 侧栏导航标记(逐字节复刻原静态 HTML 的结构与缩进;由 sidebar.js 注入) */
+/* 侧栏导航标记(逐字节复刻原静态 HTML 的结构与缩进;由 sidebar.js 注入;nav:false 的视图不出现在导航) */
 function navHTML(){
-  return VIEWS.filter(d=>d.icon).map(d=>
+  return VIEWS.filter(d=>d.icon && d.nav!==false).map(d=>
 `
       <div class="nav-item" data-view="${d.id}">
         <span class="ico" style="background:${d.color}">${d.icon}</span>

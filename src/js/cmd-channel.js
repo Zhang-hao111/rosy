@@ -15,11 +15,11 @@ async function processCmd(){
       const t = TASKS.find(x=>x.id === +idStr);
       if(t && t.done !== !!val){
         t.done = !!val;
-        t.doneAt = t.done ? Date.now() : null;
+        t.doneAt = t.done ? Date.now() : 0;
         changed = true;
       }
     }
-    await invoke('ack_cmd');
+    await invoke('ack_cmd', {expected: cmd});   // 内容比对后删:ack 前若有新命令写入则保留,待下轮处理
     if(changed){ render(); scheduleSave(); showToast('已从弹窗同步'); }
   }catch(e){ console.error('处理弹窗命令失败', e); }
 }

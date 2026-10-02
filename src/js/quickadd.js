@@ -1,8 +1,11 @@
 import { $, fmtTs, TODAY, WD } from './utils.js';
 import { TASKS, state, LISTS, T } from './store.js';
 import { render, animateRow } from './render.js';
+import { scheduleSave } from './data.js';
 import { openPicker, closePicker } from './picker.js';
 import { viewDef } from './views.js';
+import { positionMenu } from './ui-menu.js';
+import { registerOverlay, overlayOpened } from './ui-overlays.js';
 /* ================= 快速添加栏 ================= */
 function renderQuickBar(){
   const def = viewDef(state.view);
@@ -44,7 +47,7 @@ $('#quickInput').addEventListener('keydown', e=>{
   const nt = T({title:s, listId, due:d});
   TASKS.unshift(nt);
   e.target.value=''; state.quickDate=null; state.quickTime='';
-  render();
+  render(); scheduleSave();
   animateRow(nt.id, 'enter');
 });
 $('#listPill').addEventListener('click', e=>{
@@ -65,14 +68,8 @@ function openListMenu(ctx, anchor){
       <svg class="ck" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.2l2.6 2.6L10 3.2"/></svg>
     </div>`).join('');
   m.classList.remove('hidden');
-  const r = anchor.getBoundingClientRect();
-  const pw = 172, ph = m.offsetHeight;
-  let x = Math.min(r.left, window.innerWidth - pw - 16);
-  let y = r.bottom + 8;
-  const up = y + ph > window.innerHeight - 12;
-  if(up) y = r.top - ph - 8;
-  m.style.left = x+'px'; m.style.top = Math.max(12,y)+'px';
-  m.style.transformOrigin = `${r.left < window.innerWidth/2 ? 'left' : 'right'} ${up?'bottom':'top'}`;
+  positionMenu(m, anchor, {width:172});
+  overlayOpened('listMenu');
 }
 function closeListMenu(){ $('#listMenu').classList.add('hidden'); menuCtx = null; }
 $('#listMenu').addEventListener('click', e=>{
@@ -81,12 +78,13 @@ $('#listMenu').addEventListener('click', e=>{
   const ctx = menuCtx;
   if(ctx==='detail'){ const t = TASKS.find(x=>x.id===state.selected); if(t) t.listId = id; }
   else state.quickList = id;
-  closeListMenu(); render();
+  closeListMenu(); render(); scheduleSave();   // listId 与 quickList 都在落盘字段里
   if(ctx==='quick') $('#quickInput').focus();
 });
 $('#quickDateBtn').addEventListener('click', e=>{
   e.stopPropagation();
   openPicker('quick', $('#quickDateBtn'));
 });
+registerOverlay('listMenu', {isOpen:listMenuOpen, close:closeListMenu});
 export { renderQuickBar, openListMenu, closeListMenu };
 export function listMenuOpen(){ return menuCtx !== null; }

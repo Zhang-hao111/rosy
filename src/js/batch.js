@@ -1,8 +1,10 @@
 import { $, $$, TODAY, DAY, fmtTs } from './utils.js';
 import { TASKS, state, T, setTasks } from './store.js';
 import { render } from './render.js';
+import { scheduleSave } from './data.js';
 import { showToast } from './toast.js';
 import { viewDef } from './views.js';
+import { registerOverlay, overlayOpened } from './ui-overlays.js';
 /* ================= 批量生成每周固定任务 ================= */
 const wdSet = new Set([1,3,5]);   // 默认周一/三/五
 let repList = null;   // null = 跟随当前上下文
@@ -38,6 +40,7 @@ function renderRepPreview(){
 }
 function batchOpen(){
   $('#batchModal').classList.remove('hidden');
+  overlayOpened('batchModal');
   renderRepPreview();
   setTimeout(()=>$('#repTitle').focus(), 60);
 }
@@ -69,11 +72,12 @@ $('#repAdd').addEventListener('click', ()=>{
   const created = dates.map(ts=>T({title, listId, due:{ts, time}}));
   setTasks(created.concat(TASKS));
   batchCloseFn();
-  render();
+  render(); scheduleSave();
   showToast(`已生成 ${created.length} 个「${title}」`, ()=>{
     setTasks(TASKS.filter(t=>!created.includes(t)));
-    render();
+    render(); scheduleSave();
   });
 });
 
+registerOverlay('batchModal', {isOpen:()=>!$('#batchModal').classList.contains('hidden'), close:batchCloseFn});
 export { batchCloseFn };

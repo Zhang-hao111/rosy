@@ -4,11 +4,13 @@ import { $, $$, TODAY, DAY, fmtTs } from './utils.js';
 import { TASKS, state, obsExpanded, setTasks } from './store.js';
 import { invoke } from './tauri.js';
 import { scheduleSave, saveObsPrefs } from './data.js';
+import { flipTaskLine } from './obsidian-parse.js';
 import { syncCalYM } from './views-calendar.js';
 import { render, renderDetail, animateRow, retrigger } from './render.js';
 import { showToast, hideToast } from './toast.js';
 import { openPicker } from './picker.js';
-import { demoImport, connectNotes, connectVault, openObsHiddenMenu, moveNote, hideNote } from './obsidian.js';
+import { demoImport, connectNotes, connectVault, moveNote, hideNote, syncTaskToNote, rememberLedgerLine } from './obsidian-sync.js';
+import { openObsHiddenMenu } from './views-obsidian.js';
 $('#taskScroll').addEventListener('click', e=>{
   if(e.target.closest('#obsConnectNoteBtn')){
     (async ()=>{
@@ -87,12 +89,7 @@ function toggleDone(id){
   const t = TASKS.find(x=>x.id===id); if(!t) return;
   t.done = !t.done; t.doneAt = t.done? Date.now() : 0;
   if(t.srcPath && t.srcLine && invoke){
-    const to = t.done
-      ? t.srcLine.replace(/^(\s*[-*+]\s+\[)\s?(?:x|X)?(\])/,'$1x$2')
-      : t.srcLine.replace(/^(\s*[-*+]\s+\[)\s?(?:x|X)?(\])/,'$1 $2');
-    invoke('write_back',{path:t.srcPath, from:t.srcLine, to})
-      .then(ok=>{ if(ok) t.srcLine = to; else showToast('笔记内容已变动，未能回写'); })
-      .catch(()=>showToast('回写失败：无法写入笔记文件'));
+    syncTaskToNote(t, flipTaskLine(t.srcLine, t.done));   // 统一回写入口:成功自动更新 srcLine/台账/落盘
   }
   render();
   scheduleSave();   // 修复：勾选状态此前不会落盘
@@ -108,7 +105,17 @@ function delTask(id){
   lastDeleted = {task: t, index: i};
   TASKS.splice(i,1);
   if(state.selected===id) state.selected=null;
-  render();
+  // Obsidian 任务:删除同步笔记——立即落笔,不等撤销窗口(否则窗口期内 reimport 会把行带回来)。
+  // 台账不手工清理:行消失后由 reimport 的剪枝自动清;保留台账让撤销追加时 id 直接复原
+  if(t.src==='obsidian' && t.srcPath && t.srcLine && invoke){
+    lastDeleted.noteOp = invoke('remove_line', {path: t.srcPath, line: t.srcLine})
+      .then(ok=>{
+        if(ok){ scheduleSave(); }
+        else showToast('笔记内容已变动，未能同步删除');   // 下次同步该任务会按笔记复活(笔记赢)
+      })
+      .catch(()=>showToast('同步删除失败：无法写入笔记文件'));
+  }
+  render(); scheduleSave();
   const title = lastDeleted.task.title;
   showToast(`已删除「${title.length>14? title.slice(0,14)+'…' : title}」`, undoDelete);
 }
@@ -127,12 +134,24 @@ function clearDone(){
 function undoClearDone(){
   if(!lastCleared) return;
   TASKS.splice(Math.min(lastCleared.index, TASKS.length), 0, ...lastCleared.tasks);
-  lastCleared = null; hideToast(); render();
+  lastCleared = null; hideToast(); render(); scheduleSave();
 }
 function undoDelete(){
   if(!lastDeleted) return;
   TASKS.splice(Math.min(lastDeleted.index, TASKS.length), 0, lastDeleted.task);
-  lastDeleted = null; hideToast(); render();
+  const t = lastDeleted.task;
+  const noteOp = lastDeleted.noteOp;
+  lastDeleted = null; hideToast(); render(); scheduleSave();
+  // Obsidian 任务:撤销 = 行追加回笔记末尾(位置可能变化,R1 已知取舍);
+  // 串行等待未完成的 remove_line,避免「先追加后删除」的乱序竞态;
+  // 追加成功后重新登记台账——删除后 watcher 触发的重导入已把该行剪掉,不登记会派生新 id
+  const go = ()=> invoke('append_line', {path: t.srcPath, line: t.srcLine})
+    .then(()=>{ rememberLedgerLine(t.srcPath, t.srcLine, t.id); })
+    .catch(()=>showToast('撤销恢复：笔记追加失败'));
+  if(t.src==='obsidian' && t.srcPath && t.srcLine && invoke){
+    (noteOp ? noteOp.catch(()=>{}) : Promise.resolve()).then(go);
+    showToast('已恢复 · 行已追加到笔记末尾');
+  }
 }
 /* 拖拽改期 */
 $('#taskScroll').addEventListener('dragstart', e=>{
@@ -162,7 +181,7 @@ $('#taskScroll').addEventListener('drop', e=>{
   const prevDue = t.due;
   t.due = {ts, time: t.due ? t.due.time : null};
   if(state.selected===id && $('#detailPane').classList.contains('open')) renderDetail();
-  render();
-  showToast(`已移至 ${fmtTs(ts)}`, ()=>{ t.due = prevDue; render(); });
+  render(); scheduleSave();
+  showToast(`已移至 ${fmtTs(ts)}`, ()=>{ t.due = prevDue; render(); scheduleSave(); });
 });
 export { delTask };

@@ -1,5 +1,6 @@
 import { TAURI, getCurrentWindow, logicalSizeCtor } from './tauri.js';
 import { $ } from './utils.js';
+import { flushSave } from './data.js';
 /* ================= 窗口控制 ================= */
 if(TAURI){
   const win = getCurrentWindow();
@@ -33,6 +34,17 @@ if(TAURI){
   });
   // 关闭瞬间（任意路径：红绿灯/Alt+F4/dock）按最后常规尺寸落盘，拦截销毁期假事件
   const markClose = ()=>{ if(closing) return; closing = true; clearTimeout(rsT); persist(lastNormal); };
+  /* 关窗 flush:close-requested 拦截所有关闭路径,先把挂起的 400ms 防抖保存落盘再销毁,
+     勾选后立刻关窗不再丢数据(destroy 需 capabilities 的 allow-destroy) */
+  win.onCloseRequested(async (e)=>{
+    e.preventDefault();
+    try{ await flushSave(); }catch(err){}
+    markClose();
+    win.destroy();
+  });
   window.addEventListener('beforeunload', markClose);
   window.addEventListener('pagehide', markClose);
+}else{
+  // 浏览器预览兜底:尽力而为地 flush(无 invoke 时 flushSave 本身就是 no-op)
+  window.addEventListener('beforeunload', ()=>{ flushSave(); });
 }

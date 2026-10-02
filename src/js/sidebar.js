@@ -27,7 +27,7 @@ let miniY = _now.getFullYear(), miniM = _now.getMonth();
 function renderMiniCal(){
   const first = new Date(miniY, miniM, 1), offset = (first.getDay()+6)%7, dim = new Date(miniY,miniM+1,0).getDate();
   const selKey = state.view==='calendar' ? state.calSel : null;
-  let html = `<div class="mc-head"><span class="mc-title">${miniY}年${miniM+1}月</span>
+  let html = `<div class="mc-head"><span class="mc-title" title="打开日历视图">${miniY}年${miniM+1}月</span>
     <span class="mc-nav">
       <button class="mc-btn" id="mcPrev"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 2.5L4 6l3.5 3.5"/></svg></button>
       <button class="mc-btn" id="mcNext"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5L8 6l-3.5 3.5"/></svg></button>
@@ -68,9 +68,17 @@ function renderUpcoming(){
 $('#miniCal').addEventListener('click', e=>{
   const nav = e.target.closest('.mc-btn');
   if(nav){
-    if(nav.id==='mcPrev'){ if(--miniM<0){miniM=11;miniY--;} } 
+    if(nav.id==='mcPrev'){ if(--miniM<0){miniM=11;miniY--;} }
     else { if(++miniM>11){miniM=0;miniY++;} }
     renderMiniCal(); return;
+  }
+  // 点月份标题:进入日历视图,展示迷你月历当前所在月份
+  if(e.target.closest('.mc-title')){
+    state.view='calendar';
+    state.calY=miniY; state.calM=miniM;
+    state.calSel = (miniY===_now.getFullYear() && miniM===_now.getMonth()) ? TODAY
+                 : new Date(miniY,miniM,1).getTime();
+    state.selected=null; render(); return;
   }
   const d = e.target.closest('.mc-d'); if(!d) return;
   const ts = +d.dataset.ts;

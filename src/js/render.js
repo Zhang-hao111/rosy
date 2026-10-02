@@ -1,10 +1,9 @@
 import { $, esc, dueLabel, kindOf } from './utils.js';
 import { TASKS, state, obsState, LISTS, OBS_COLOR } from './store.js';
-import { scheduleSave } from './data.js';
 import { renderSidebar, renderMiniCal, renderProg, renderUpcoming } from './sidebar.js';
 import { renderList } from './views-list.js';
 import { renderCalendar } from './views-calendar.js';
-import { renderObsidianView } from './obsidian.js';
+import { renderObsidianView } from './views-obsidian.js';
 import { renderQuickBar } from './quickadd.js';
 import { viewDef } from './views.js';
 /* ================= 详情面板 ================= */
@@ -36,7 +35,11 @@ function renderDetail(){
           ${t.due? dl : '设置日期'}
         </button>
       </div>
-      <div class="d-label">备注</div>
+      ${t.src==='obsidian'
+        ? `<div class="d-label">备注</div>
+      <div class="d-notes d-readonly" id="dNotes">${esc(t.notes)}</div>
+      <div class="d-hint">Obsidian 任务不支持备注/子任务，请在笔记中维护</div>`
+        : `<div class="d-label">备注</div>
       <div class="d-notes" id="dNotes" contenteditable="true" spellcheck="false">${esc(t.notes)}</div>
       <div class="d-label">子任务 ${t.subtasks.length? `· ${doneSub}/${t.subtasks.length}`:''}</div>
       <div id="dSubs">${t.subtasks.map((s,i)=>`
@@ -44,7 +47,7 @@ function renderDetail(){
           <button class="sub-check ${s.done?'on':''}" data-i="${i}"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.2l2.6 2.6L10 3.2"/></svg></button>
           <span class="sub-title">${esc(s.title)}</span>
         </div>`).join('')}</div>
-      <div class="sub-add"><span class="pl">＋</span><input id="dSubAdd" placeholder="添加子任务，回车确认"></div>
+      <div class="sub-add"><span class="pl">＋</span><input id="dSubAdd" placeholder="添加子任务，回车确认"></div>`}
     </div>
     <div class="d-footer">
       <button class="icon-btn danger" id="dDelete" title="删除任务"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6.5 4V2.8a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1V4M4 4l.7 9a1.3 1.3 0 0 0 1.3 1.2h4a1.3 1.3 0 0 0 1.3-1.2L12 4"/></svg></button>
@@ -60,6 +63,8 @@ function animateRow(id, cls){
   const c = document.querySelector(`.cchip[data-id="${id}"]`);
   if(c) c.classList.add('chipflash');
 }
+/* 渲染是纯视图函数:不触发落盘。保存由真实数据变更点各自 scheduleSave()
+   (勾选/删除/新建/日期/清单/主题/来源同步…),搜索输入、翻页等纯浏览动作不再写盘 */
 /* 渲染器注册:kind → 渲染函数。全新渲染类型在此加一行;smart/list 类新视图零改动。 */
 const RENDERERS = { smart:renderList, list:renderList, calendar:renderCalendar, obsidian:renderObsidianView };
 function render(){
@@ -83,6 +88,5 @@ function render(){
   if(def && def.kind==='calendar'){ _prevCalKey=calKey; _prevSel=state.calSel; }
   else { _prevCalKey=null; _prevSel=null; }   // 离开日历后再次进入时重新播放入场动画
   _prevView=state.view; _prevDetailSel=state.selected;
-  scheduleSave();
 }
 export { render, renderDetail, animateRow, retrigger };

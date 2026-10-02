@@ -1,13 +1,16 @@
 // 数据持久化:data.json 的读写(原子写),与具体 schema 无关(Value 透写)。
 use serde_json::Value;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::io::Write;
+use std::path::PathBuf;
 use tauri::Manager;
 
 fn data_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    // 数据存 E 盘(不占 C 盘);E:\zh\data 不存在时退回系统配置目录
-    if Path::new("E:\\zh\\data").is_dir() {
-        return Ok(PathBuf::from("E:\\zh\\data\\rosy\\data.json"));
+    // ROSY_DATA_DIR 显式指定数据目录(测试/便携使用);默认存系统配置目录
+    if let Ok(dir) = std::env::var("ROSY_DATA_DIR") {
+        if !dir.trim().is_empty() {
+            return Ok(PathBuf::from(dir).join("data.json"));
+        }
     }
     app.path()
         .app_config_dir()
@@ -31,9 +34,12 @@ pub fn save_data(app: tauri::AppHandle, data: Value) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    // 先写临时文件再原子替换,避免写一半退出损坏数据
+    // 先写临时文件并 fsync 再原子替换:掉电时目标文件要么旧要么新,不会半写/空
     let tmp = path.with_extension("json.tmp");
     let json = serde_json::to_string(&data).map_err(|e| e.to_string())?;
-    fs::write(&tmp, json).map_err(|e| e.to_string())?;
+    let mut f = fs::File::create(&tmp).map_err(|e| e.to_string())?;
+    f.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
+    f.sync_all().map_err(|e| e.to_string())?;
+    drop(f);
     fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }
