@@ -71,3 +71,7 @@ HANDOFF.md                  完整交接文档：Ubuntu 依赖、EDS 的坑与�
 
 交接与排坑细节都在 [HANDOFF.md](HANDOFF.md)（先读它）：
 各阶段完成情况、EDS 本地日历为什么走不通、弹窗历版规则、`data.json` 数据模型、Wayland 下的验证手段。
+
+## 许可
+
+[MIT](LICENSE)。
